@@ -15,13 +15,16 @@ import universe from "./lines/universe.js";
 import fourd from "./lines/fourd.js";
 import kami from "./lines/kami.js";
 import glitch from "./lines/glitch.js";
+import voidLines from "./lines/void.js";
+import genesis from "./lines/genesis.js";
+import truehome from "./lines/truehome.js";
 import toneRoast from "./lines/tone-roast.js";
 import toneCold from "./lines/tone-cold.js";
 import toneWarm from "./lines/tone-warm.js";
 import toneGood from "./lines/tone-good.js";
 import tonePraise from "./lines/tone-praise.js";
 
-// ── 14段階（通常7 + シークレット7）──
+// ── 14段階（通常7 + シークレット7）＋ エンドコンテンツ3 ──
 // minScore 以上でその段階。tone は バズ神のキャラ（roast=毒舌 / cold=塩 / warm=なかなか / good=ほめ / praise=絶賛）
 // hidden: シークレットの中のシークレット。一度届くまでバズマップにも /api/levels にも出さない
 export const LEVELS = [
@@ -40,6 +43,12 @@ export const LEVELS = [
   { name: "四次元", emoji: "🌀", minScore: 96, likes: [1e11, 1e13], tone: "praise", secret: true, hidden: true },
   { name: "神",     emoji: "⛩️", minScore: 98, likes: [1e13, 1e15], tone: "praise", secret: true, hidden: true },
   { name: "∬∃@▽◇◎＄￡※⊆〒^^", emoji: "👁️", minScore: 99, likes: [1e15, 9e15], tone: "praise", secret: true, hidden: true },
+  // ここからエンドコンテンツ（end）：バズマップにも数にも出さない。点数では届かず（minScore 999）、
+  // 14段階ぜんぶ見たあと index.js の endTarget で、無 → 創世 → 真・家庭内 の順にまれに出る。講評は追い講評なし
+  // いいね数：無は0、創世は1無量大数（1e68。新しい宇宙の最初の1）、真・家庭内は家族の3
+  { name: "無",         emoji: "🕳️", minScore: 999, likes: [0, 1],       tone: "void",    secret: true, hidden: true, end: true },
+  { name: "創世",       emoji: "🌱", minScore: 999, likes: [1e68, 1e68], tone: "genesis", secret: true, hidden: true, end: true },
+  { name: "真・家庭内", emoji: "🏡", minScore: 999, likes: [3, 4],       tone: "home",    secret: true, hidden: true, end: true },
 ];
 
 // ── ツイートの「パターン」を見分けるキーワード ──
@@ -62,7 +71,7 @@ export const THEMES = {
 // tone ごとのファイル（tone-*.js）：{ comments: { パターン: [追い講評…] }, replies: { パターン: [[名前, ID, 本文], …] } }
 
 // LEVELS と同じ順番
-const STAGE_LINES = [home, village, town, pref, nation, asia, earth, solar, galaxy, cluster, universe, fourd, kami, glitch];
+const STAGE_LINES = [home, village, town, pref, nation, asia, earth, solar, galaxy, cluster, universe, fourd, kami, glitch, voidLines, genesis, truehome];
 
 // 段階ごとの講評（書き出し部分）とリプライ
 export const BASE_COMMENTS = Object.fromEntries(LEVELS.map((l, i) => [l.name, STAGE_LINES[i].comments]));

@@ -347,20 +347,55 @@ export const HTML = String.raw`<!doctype html>
   @keyframes rewind { to { transform: rotate(-360deg); } }
 
   /* ∬∃@▽◇◎＄￡※⊆〒^^ */
-  /* ∬…：点滅なしで「異常さ」を出す（光過敏の人のため、画面の明るさは急に変えない・1秒に3回以上ちかちかさせない）
-     ゆっくり迫るカメラ、宇宙人のまわりを回る記号の輪、流れる走査線と緑の帯、なめらかな色ずれ、ときどき横にずれる文字 */
-  .s-glitch { background: radial-gradient(circle at 50% 56%, #052e16 0, #000 62%); animation: gzoom 6s ease-out forwards; }
+  /* ∬…：点滅なしで「ドパる」最終演出（光過敏の人のため、画面の明るさは急に変えない・1秒に3回以上ちかちかさせない）
+     派手さは動きと色で出す：傾いた画面がドンと迫って入る、奥から飛んでくる記号の輪（ワープトンネル）、外へ伸びる緑と紫の光の筋、
+     ビート（96BPM＝1拍0.625秒）で脈打つ宇宙人と分身、広がる波紋、ゆっくり回る暗い渦、流れる走査線、なめらかな色ずれ、ときどき横にずれる文字。
+     明るさが変わるのは細い線や小さな記号だけで、画面全体の明るさはほぼ一定 */
+  .s-glitch { --gb: .625s; background: radial-gradient(circle at 50% 56%, #052e16 0, #000 62%);
+    animation: gpunch .8s ease-out both, gzoom 6s ease-out forwards; }
+  /* 入り：大きく傾いた画面がドンと迫ってきて、少し行きすぎて止まる（scale と rotate なので transform のアニメとぶつからない）*/
+  @keyframes gpunch { 0% { scale: 2.8; rotate: -18deg; } 55% { scale: .95; rotate: 2.5deg; } 100% { scale: 1; rotate: 0deg; } }
   @keyframes gzoom { to { transform: scale(1.08); } }
+  /* 暗い緑と紫の渦。2色の明るさが近いので、回っても画面はちかちかしない */
+  /* 大きさは画面の角に届くぶん（中心から角まで 0.61vmax ほど）だけにして、スマホでも重くしない */
+  .gswirl { position: absolute; left: 50%; top: 56%; width: 128vmax; height: 128vmax; margin: -64vmax 0 0 -64vmax; pointer-events: none;
+    background: repeating-conic-gradient(#08351a 0deg, #2a0d4a 22.5deg, #08351a 45deg); animation: spin 18s linear infinite;
+    -webkit-mask: radial-gradient(circle closest-side, #000 0, rgba(0,0,0,.8) 32%, transparent 100%); mask: radial-gradient(circle closest-side, #000 0, rgba(0,0,0,.8) 32%, transparent 100%); }
+  .gswirl.b { opacity: .5; animation-duration: 27s; animation-direction: reverse;
+    background: repeating-conic-gradient(rgba(74,222,128,.16) 0deg, transparent 15deg, rgba(232,121,249,.16) 30deg, transparent 45deg, rgba(74,222,128,.16) 60deg); }
+  /* ワープトンネル：記号の輪が奥から手前へ飛んでくる（輪ごとに回る向きが逆。記号は文字化けし続ける）。拍ごとに全体が少しふくらむ */
+  .gtunnel { position: absolute; inset: 0; pointer-events: none; transform-origin: 50% 56%; animation: gbump var(--gb) ease-out infinite; }
+  @keyframes gbump { 0% { scale: 1.05; } 100% { scale: 1; } }
+  .gring { position: absolute; left: 50%; top: 56%; width: min(70vmin, 520px); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+    border: 2px dashed rgba(74,222,128,.4); animation: gfly 2.4s cubic-bezier(.5,0,.9,.6) infinite; }
+  .gring.m { border-color: rgba(232,121,249,.4); }
+  .gring span { position: absolute; translate: -50% -50%; color: #4ade80; font-weight: 800; font-size: clamp(16px, 3.4vmin, 28px);
+    text-shadow: -2px 0 #f0f, 2px 0 #0ff, 0 0 10px #22c55e; }
+  .gring.m span { color: #f0abfc; text-shadow: -2px 0 #0ff, 2px 0 #4ade80, 0 0 10px #c026d3; }
+  @keyframes gfly { 0% { scale: .06; rotate: 0deg; opacity: 0; } 18%, 78% { opacity: 1; } 100% { scale: 2.7; rotate: var(--gr); opacity: 0; } }
+  /* 中心から外へ伸びる光の筋（宇宙の .streak を緑と紫にして使う）*/
+  .s-glitch .streak { top: 56%; width: 48vmax; height: 3px; background: linear-gradient(90deg, transparent, #4ade80); animation-duration: 1.1s; }
+  .s-glitch .streak.m { background: linear-gradient(90deg, transparent, #e879f9); }
+  /* 宇宙人：回りながら飛びこんできて、拍ごとに脈打つ。まわりを色ちがいの分身が回り、拍ごとに波紋が広がる */
+  .galien { position: absolute; left: 50%; top: 56%; width: min(48vw, 300px); aspect-ratio: 300 / 330; translate: -50% -50%;
+    animation: gland .9s .1s cubic-bezier(.2,1.4,.4,1) both, gjolt 2.6s 1.2s steps(1) infinite; }
+  @keyframes gland { from { scale: 0; rotate: -540deg; } }
+  .s-glitch .alienimg { position: absolute; left: 0; top: 0; width: 100%;
+    animation: gbeat var(--gb) ease-out infinite, aberration 1.6s ease-in-out infinite alternate; }
+  @keyframes gbeat { 0% { scale: 1.14; } 40% { scale: 1.02; } 100% { scale: 1; } }
+  .gorbit { position: absolute; left: 50%; top: 50%; width: 190%; aspect-ratio: 1; translate: -50% -50%; animation: spin 5s linear infinite; }
+  .gclone { position: absolute; width: 32%; translate: -50% -50%; opacity: .42; animation: spin 5s linear infinite reverse, gbeat var(--gb) ease-out infinite; }
+  .gwave { position: absolute; left: 50%; top: 50%; width: 100%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; opacity: 0;
+    border: 3px solid rgba(74,222,128,.6); box-shadow: 0 0 18px rgba(34,197,94,.35), inset 0 0 18px rgba(34,197,94,.25);
+    animation: gwave calc(var(--gb) * 2) ease-out infinite; }
+  .gwave.m { border-color: rgba(232,121,249,.55); box-shadow: 0 0 18px rgba(192,38,211,.35), inset 0 0 18px rgba(192,38,211,.25); animation-delay: var(--gb); }
+  @keyframes gwave { from { scale: .35; opacity: .85; } to { scale: 3.4; opacity: 0; } }
   .s-glitch::before { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
     background: repeating-linear-gradient(0deg, rgba(0,0,0,.32) 0 2px, transparent 2px 4px); animation: scanline 4s linear infinite; }
   @keyframes scanline { to { background-position: 0 40px; } }
   .s-glitch::after { content: ""; position: absolute; left: 0; right: 0; top: -20%; height: 18%; z-index: 4; pointer-events: none;
     background: linear-gradient(transparent, rgba(74,222,128,.1), transparent); animation: tracking 3.2s linear infinite; }
   @keyframes tracking { to { top: 110%; } }
-  .gring { position: absolute; left: 50%; top: 56%; translate: -50% -50%; border-radius: 50%; border: 1px dashed rgba(74,222,128,.25); animation: spin linear infinite; }
-  .gring span { position: absolute; translate: -50% -50%; color: #4ade80; font-weight: 800; font-size: clamp(16px, 3.4vmin, 28px); text-shadow: 0 0 10px #22c55e; }
-  .s-glitch .alienimg { position: absolute; left: 50%; top: 56%; width: min(48vw, 300px); transform: translate(-50%, -50%);
-    animation: aberration 1.6s ease-in-out infinite alternate; }
   @keyframes aberration {
     from { filter: drop-shadow(-4px 0 rgba(255,0,255,.8)) drop-shadow(4px 0 rgba(0,255,255,.8)) drop-shadow(0 0 24px #22c55e); }
     to { filter: drop-shadow(5px 0 rgba(255,0,255,.8)) drop-shadow(-5px 0 rgba(0,255,255,.8)) drop-shadow(0 0 44px #22c55e); } }
@@ -444,6 +479,18 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t4 .ci-stamp, .cutin.t5 .ci-stamp { background: linear-gradient(90deg, #ef4444, #facc15, #22c55e, #3b82f6, #a855f7); }
   .cutin.t5 .ci-stamp { color: #fffbeb; border-color: #fde047; font-size: clamp(36px, 10vw, 110px); }
   .cutin.t6 .ci-stamp { background: #000; border-color: #22c55e; color: #4ade80; font-family: monospace; }
+  /* エンドコンテンツのカットイン：無は白と灰で静かに（集中線も止める）、創世は夜明け、真・家庭内は夕焼け */
+  .cutin.t7 { --c1: #d4d4d8; --c2: #f4f4f5; --c3: #fff; background: #e4e4e7; animation: none; }
+  .cutin.t7 .ci-lines { display: none; }
+  .cutin.t7 .ci-band { background: linear-gradient(100deg, #e4e4e7, #fafafa 55%, #e4e4e7); border-color: #a1a1aa; box-shadow: none; }
+  .cutin.t7 .ci-name { color: #18181b; -webkit-text-stroke: 0; text-shadow: none; }
+  .cutin.t7 .ci-label { color: #71717a; text-shadow: none; }
+  .cutin.t7 .ci-stamp { background: #fafafa; color: #3f3f46; border-color: #a1a1aa; box-shadow: none; text-shadow: none; }
+  .cutin.t7 .ci-god { opacity: .25; filter: grayscale(1); }
+  .cutin.t8 { --c1: #0b1026; --c2: #38bdf8; --c3: #fde68a; }
+  .cutin.t8 .ci-band { background: linear-gradient(100deg, #1e3a8a, #38bdf8 40%, #fde68a 70%, #fff7ed); }
+  .cutin.t9 { --c1: #7c2d12; --c2: #fb923c; --c3: #fff7ed; }
+  .cutin.t9 .ci-band { background: linear-gradient(100deg, #7c2d12, #ea580c 45%, #fdba74 75%, #fff7ed); }
   .ci-new { position: absolute; left: 0; right: 0; top: 11%; margin: auto; width: fit-content; z-index: 4; rotate: -4deg; background: #facc15; color: #b91c1c;
     font-weight: 800; font-size: clamp(20px, 4.6vw, 42px); padding: 4px 20px; border-radius: 999px; border: 4px solid #fff; white-space: nowrap; box-shadow: 0 0 30px #facc15;
     animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, wobble .35s calc(1.1s * var(--k)) ease-in-out 4 alternate; }
@@ -464,7 +511,8 @@ export const HTML = String.raw`<!doctype html>
     .ci-stamp { font-size: clamp(26px, 11vh, 60px); bottom: 6%; }
   }
   .gtext { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); font-size: clamp(16px, min(6.2vw, 9vh), 90px); font-weight: 800; white-space: nowrap;
-    text-shadow: -4px 0 #f0f, 4px 0 #0ff; animation: gt 1.2s ease-in-out infinite alternate, gslip 2.2s steps(1) infinite; }
+    text-shadow: -4px 0 #f0f, 4px 0 #0ff; animation: gslam .6s .3s cubic-bezier(.2,1.6,.4,1) both, gt 1.2s ease-in-out infinite alternate, gslip 2.2s steps(1) infinite; }
+  @keyframes gslam { from { scale: 4; opacity: 0; } }   /* 名前が大きく迫ってきてドンと止まる（scale なので gslip の transform とぶつからない）*/
   @keyframes gt { to { text-shadow: 5px 0 #f0f, -5px 0 #0ff; } }
   @keyframes gslip { 0%, 84%, 92%, 100% { transform: translate(-50%, -50%); } 86% { transform: translate(-46%, -50%) skewX(-12deg); } 89% { transform: translate(-53%, -51%) skewX(8deg); } }
   .sym { position: absolute; top: -10%; color: #0f0; font-weight: 800; animation: rain linear infinite; font-size: 22px; }
@@ -473,6 +521,39 @@ export const HTML = String.raw`<!doctype html>
   @keyframes blink2 { 90% { transform: translate(-50%, -50%) scaleY(1); } 95% { transform: translate(-50%, -50%) scaleY(.1); } }
   .unlock { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); z-index: 6; background: linear-gradient(90deg, #7c3aed, #db2777); padding: 8px 18px;
     border-radius: 999px; font-weight: 800; white-space: nowrap; animation: popin .6s cubic-bezier(.2,1.6,.4,1) both; box-shadow: 0 0 30px #c026d3; }
+  .unlock.end { background: #18181b; color: #f4f4f5; box-shadow: 0 0 24px rgba(255,255,255,.25); border: 1px solid #52525b; }
+
+  /* ── エンドコンテンツの場面（どれも明るさを一気に変えない）── */
+  /* 無：1.6秒かけて黒から白へ。小さな点がゆっくり消えていく */
+  .s-void { background: #f4f4f5; animation: voidin 1.6s ease both; }
+  @keyframes voidin { from { background: #000; } }
+  .s-void .vdot { position: absolute; left: 50%; top: 45%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #18181b; animation: vdot 6s ease-in 1s forwards; }
+  @keyframes vdot { to { transform: scale(.1); opacity: 0; } }
+  .s-void .vtext { position: absolute; left: 0; right: 0; top: 30%; text-align: center; color: #a1a1aa; font-size: clamp(22px, 6vw, 48px); letter-spacing: .4em; animation: fadein 2s 1.2s both; }
+  .s-void .caption .lv, .s-void .caption .sub { color: #27272a; text-shadow: none; }
+  .s-void .unlock.end { top: 12%; }
+  /* 創世：真ん中から光が広がり、輪が広がり、星や惑星が生まれ、芽が出る */
+  .s-genesis { background: radial-gradient(circle at 50% 55%, #1e3a8a, #0b1026 60%, #000); }
+  .gn-light { position: absolute; left: 50%; top: 55%; width: 20px; height: 20px; translate: -50% -50%; border-radius: 50%;
+    background: radial-gradient(circle, #fff, #fde68a 35%, rgba(253,230,138,0) 70%); animation: gnlight 3.5s ease-out forwards; }
+  @keyframes gnlight { to { width: 150vmax; height: 150vmax; opacity: .16; } }
+  .gn-ring { position: absolute; left: 50%; top: 55%; width: 10px; height: 10px; translate: -50% -50%; border-radius: 50%; border: 2px solid rgba(186,230,253,.6); animation: gnring 3s ease-out infinite; }
+  @keyframes gnring { to { width: 120vmax; height: 120vmax; opacity: 0; } }
+  .gn-body { font-size: min(10vw, 70px); opacity: 0; animation: gnbody 1.4s ease-out forwards, float 3s ease-in-out 1.4s infinite; }
+  @keyframes gnbody { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: none; } }
+  .sprout { left: 50%; top: 52%; translate: -50% -50%; font-size: min(26vw, 180px); filter: drop-shadow(0 0 30px #86efac); animation: sprout 2.4s cubic-bezier(.2,1.4,.4,1) .5s both; }
+  @keyframes sprout { from { transform: scale(0) rotate(-20deg); } }
+  /* 真・家庭内：夕日の居間。最初の「家庭内」で寝転んでいた妹が起き上がる */
+  .s-truehome { background: linear-gradient(#f59e0b, #b45309 55%, #7c2d12); }
+  .s-truehome .floor { background: linear-gradient(#92400e, #78350f); }
+  .th-window { position: absolute; left: 6%; top: 10%; width: 22%; height: 28%; border: 10px solid #7c2d12; border-radius: 6px; background: linear-gradient(#fdba74, #fde68a); }
+  .th-sis { left: 46%; bottom: 30%; font-size: min(18vw, 150px); transform-origin: 50% 90%; animation: situp 1.2s .4s cubic-bezier(.2,1.3,.4,1) both; }
+  @keyframes situp { from { transform: rotate(-90deg); } }
+  .th-omoro { left: 52%; top: 22%; color: #7c2d12; animation-delay: 1.5s; }
+  .th-fam { bottom: 28%; font-size: min(12vw, 100px); animation: hop .5s ease-in-out 1.6s infinite alternate; }
+  .th-dog { left: 60%; bottom: 27%; font-size: min(9vw, 70px); animation: hop .3s ease-in-out 1.6s infinite alternate; }
+  .th-heart { position: absolute; bottom: -30px; font-size: 26px; opacity: 0; animation: thheart linear infinite; }
+  @keyframes thheart { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-80vh); } }
 
   /* ── 結果画面（スクロールなしで講評が見える）── */
   #result { background: rgba(5,6,10,.94); backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden; }
@@ -513,6 +594,13 @@ export const HTML = String.raw`<!doctype html>
   .speech.kami .who { color: #fde047; }
   .speech.glitch { background: #020a02; border-color: #22c55e; box-shadow: 0 0 30px rgba(34,197,94,.35); color: #bbf7d0; }
   .speech.glitch .who { color: #4ade80; }
+  .speech.void { background: #fafafa; border-color: #d4d4d8; color: #27272a; }
+  .speech.void .who { color: #71717a; }
+  .speech.genesis { background: linear-gradient(135deg, #0c1a3d, #10203f 60%, #2a2410); border-color: #7dd3fc; box-shadow: 0 0 40px rgba(125,211,252,.3); }
+  .speech.genesis .who { color: #bae6fd; }
+  .speech.home { background: linear-gradient(135deg, #451a03, #2a1206); border-color: #fb923c; box-shadow: 0 0 40px rgba(251,146,60,.35); }
+  .speech.home .who { color: #fdba74; }
+  .god.vanish { opacity: .14; filter: grayscale(1) blur(.5px); }   /* 無：バズ神は消えかけている */
   .scorebox { text-align: center; }
   .scorebox .lvname { font-size: clamp(28px, 5vw, 46px); font-weight: 800; line-height: 1.2; word-break: break-all; }
   .scorebox .secretTag { display: inline-block; background: linear-gradient(90deg, #7c3aed, #db2777); border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 800; margin-bottom: 6px; }
@@ -559,6 +647,8 @@ export const HTML = String.raw`<!doctype html>
     background: linear-gradient(90deg, #ef4444, #f59e0b); letter-spacing: .05em; }
   .lb:empty { display: none; }
   .lb.max { background: #facc15; color: #422006; }
+  .lb.void { background: #e4e4e7; color: #27272a; }
+  .scorebox .secretTag.end { background: #18181b; border: 1px solid #52525b; }
   .lb.blink { animation: lbpulse .8s ease-in-out infinite alternate; }   /* ちかちかさせず、ふくらむだけ */
   @keyframes lbpulse { to { transform: scale(1.15); box-shadow: 0 0 12px #f59e0b; } }
   .pts.over b { background: linear-gradient(90deg, #fde047, #f472b6, #60a5fa); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -773,16 +863,23 @@ var LV = [
   { name: "全国", emoji: "🗾", min: 50 }, { name: "アジア", emoji: "🌏", min: 60 }, { name: "地球", emoji: "🌍", min: 70 },
   { name: "太陽系", emoji: "☀️", min: 77, s: 1 }, { name: "銀河", emoji: "🌌", min: 83, s: 1 }, { name: "銀河団", emoji: "✨", min: 88, s: 1 },
   { name: "宇宙", emoji: "🌠", min: 92, s: 1, h: 1 }, { name: "四次元", emoji: "🌀", min: 96, s: 1, h: 1 },
-  { name: "神", emoji: "⛩️", min: 98, s: 1, h: 1 }, { name: "∬∃@▽◇◎＄￡※⊆〒^^", emoji: "👁️", min: 99, s: 1, h: 1 }
+  { name: "神", emoji: "⛩️", min: 98, s: 1, h: 1 }, { name: "∬∃@▽◇◎＄￡※⊆〒^^", emoji: "👁️", min: 99, s: 1, h: 1 },
+  // エンドコンテンツ（e）：バズマップにも数にも出さない。14段階ぜんぶ見たあと、まれに出る。t は初めて届いたときの通知
+  { name: "無", emoji: "🕳️", min: 999, s: 1, h: 1, e: 1, t: "🕳️ 地図にない場所に来てしまった……" },
+  { name: "創世", emoji: "🌱", min: 999, s: 1, h: 1, e: 1, t: "🌱 新しい宇宙が、ここから始まる" },
+  { name: "真・家庭内", emoji: "🏡", min: 999, s: 1, h: 1, e: 1, t: "🏡 おかえりなさい" }
 ];
-var EARTH = 6, FOURD = 11, KAMI = 12, GLITCH = 13;
-var CLIMB_BG = ["#3b2c22", "#9a3412", "#0369a1", "#1e3a5f", "#7f1d1d", "#0f766e", "#0c4a6e", "#000", "#1e1b4b", "#2e1065", "#020617", "#3b0764", "#a16207", "#000"];
+var EARTH = 6, FOURD = 11, KAMI = 12, GLITCH = 13, VOID = 14, GENESIS = 15, TRUEHOME = 16;
+var MAIN = 14;   // バズマップに載る段階の数（エンドコンテンツより前）
+var CLIMB_BG = ["#3b2c22", "#9a3412", "#0369a1", "#1e3a5f", "#7f1d1d", "#0f766e", "#0c4a6e", "#000", "#1e1b4b", "#2e1065", "#020617", "#3b0764", "#a16207", "#000",
+  "#18181b", "#0b1026", "#7c2d12"];
 var LIKERS = [
   ["妹", "母", "飼い犬"], ["かかし", "村長", "田んぼのカエル"], ["商店街のおじさん", "町内会長", "駅前のパン屋"],
   ["県庁広報課", "地元テレビ", "ご当地キャラ"], ["人気芸人", "朝の情報番組", "トレンドbot"], ["ソウルの人", "台北の人", "バンコクの人"],
   ["ハリウッドスター", "NASA職員", "南極のペンギン"], ["太陽", "火星探査機", "冥王星"], ["宇宙人", "織姫", "流れ星"],
   ["アンドロメダ銀河", "暗黒物質", "天文学者"], ["ビッグバン", "宇宙そのもの", "光"], ["恐竜", "未来人", "過去のあなた"],
-  ["八百万の神々", "福の神", "風神と雷神"], ["∃∃∃", "◎◎◎", "????"]
+  ["八百万の神々", "福の神", "風神と雷神"], ["∃∃∃", "◎◎◎", "????"],
+  ["静寂", "余白", "ゼロ"], ["最初の星", "生まれたての光", "新しい海"], ["妹", "母", "父"]
 ];
 var TIPS = [
   "オチがあると点が伸びるのじゃ。", "会話形式は強いのじゃ。「」を使ってみるのじゃ。", "ハッシュタグは2個までにしておくのじゃ。",
@@ -833,7 +930,8 @@ setInterval(function () {
 }, 70);
 
 // ── 表示用のバズ力（保存する点数はそのまま。地球から上は段階ごとに限界を突破して見せる）──
-var LIMIT = { 6: [100, 25], 7: [120, 30], 8: [150, 38], 9: [200, 50], 10: [500, 125] };
+// エンドコンテンツ：無は0、創世は「新しい宇宙の最初の1点」、真・家庭内は家族満点の100
+var LIMIT = { 6: [100, 25], 7: [120, 30], 8: [150, 38], 9: [200, 50], 10: [500, 125], 14: [0, 0], 15: [1, 1], 16: [100, 25] };
 function levelOf(item) {
   for (var i = 0; i < LV.length; i++) if (LV[i].name === item.level) return i;
   for (var j = LV.length - 1; j >= 0; j--) if (item.score >= LV[j].min) return j;
@@ -849,14 +947,30 @@ function putScore(el, score, idx) {
   el.classList.toggle("flick", idx === FOURD);
   return obf(el, scoreText(score, idx));
 }
-// 大きな数を「万・億・兆」で短くする（せまい場所用）
+// 大きな数を「万・億・兆・京……無量大数」で短くする（せまい場所用。京から上は超バズのときだけ出る）
+var BIG_UNITS = [[1e68, "無量大数"], [1e64, "不可思議"], [1e60, "那由他"], [1e56, "阿僧祇"], [1e52, "恒河沙"], [1e48, "極"], [1e44, "載"],
+  [1e40, "正"], [1e36, "澗"], [1e32, "溝"], [1e28, "穣"], [1e24, "秭"], [1e20, "垓"], [1e16, "京"], [1e12, "兆"], [1e8, "億"], [1e4, "万"]];
 function compactNum(n) {
-  n = Number(n);
-  var units = [[1e12, "兆"], [1e8, "億"], [1e4, "万"]];
-  for (var i = 0; i < units.length; i++) {
-    if (n >= units[i][0]) { var v = n / units[i][0]; return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + units[i][1]; }
+  n = Math.floor(Number(n));
+  for (var i = 0; i < BIG_UNITS.length; i++) {
+    var v = n / BIG_UNITS[i][0];
+    if (!(v >= 1)) continue;
+    v = v >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
+    if (v >= 10000 && i > 0) return "1" + BIG_UNITS[i - 1][1];   // 9999.7京 → 1垓
+    return v + BIG_UNITS[i][1];
   }
   return n.toLocaleString();
+}
+// いいね数などの表示：京（1e16）から上は「3.4京」「5678垓」と短く、それより下はこれまでどおり桁区切りで全部
+// big：いいね数が京を超えたとき、同じ行のリツイート数・返信数も短くしてそろえる
+function likeNum(n, big) {
+  n = Math.floor(Number(n));
+  return big || n >= 1e16 ? compactNum(n) : n.toLocaleString();
+}
+// その数がとどいた一番上の単位（「京」「垓」など）
+function bigUnit(n) {
+  for (var i = 0; i < BIG_UNITS.length; i++) if (n >= BIG_UNITS[i][0]) return BIG_UNITS[i][1];
+  return "";
 }
 // 点数＋うしろの文字（「点」など）。点数の部分だけチラついたり化けたりする
 function scoreSpan(item, suffix) {
@@ -1034,6 +1148,8 @@ var Sound = (function () {
   var KAZOO = [[72, 0, 76, 0, 74, 0, 71, 0], [72, 0, 69, 0, 67, 0, 0, 0], [65, 0, 69, 0, 67, 0, 64, 0], [62, 64, 60, 0, 0, 0, 0, 0]];
   // アジア：ドレミソラの五音音階
   var GOOD_MEL = [[81, 0, 79, 76, 79, 0, 81, 84], [86, 0, 84, 81, 79, 0, 76, 79], [81, 0, 76, 74, 76, 0, 79, 81], [84, 81, 79, 76, 72, 0, 0, 0]];
+  // 真・家庭内：オルゴールのような子守唄のメロディ
+  var HOME_MEL = [[76, 0, 74, 0, 72, 0, 74, 76], [77, 0, 76, 74, 72, 0, 0, 0], [74, 0, 76, 77, 79, 0, 77, 76], [74, 0, 72, 0, 72, 0, 0, 0]];
   var MOODS = {
     // 待機中：ノリのいい王道進行（128BPM）
     idle: { bpm: 128, play: function (n, t, sd) {
@@ -1139,6 +1255,29 @@ var Sound = (function () {
       }
       if (n % 6 === 0 || n % 6 === 1) kick(t, n % 6 ? 0.55 : 0.95);
     } },
+    // ── エンドコンテンツの曲 ──
+    // 無：ほとんど音がない。遠くの風と、ときどき鳴る小さな鐘
+    void: { bpm: 60, play: function (n, t, sd) {
+      if (n % 32 === 0) noise(t, sd * 32, { f: 300, fTo: 900, vol: 0.07, swell: true });
+      if (n % 12 === 6 && Math.random() < 0.8) bell(t, pickOne([72, 76, 79, 84]), 3, 0.06);
+    } },
+    // 創世：生まれたての宇宙。光がひらくような和音と、上っていくきらめき
+    genesis: { bpm: 72, play: function (n, t, sd) {
+      var s = n % 16, bar = Math.floor(n / 16) % 4;
+      var ch = [[60, 64, 67, 72], [62, 65, 69, 74], [64, 67, 71, 76], [65, 69, 72, 77]][bar];
+      if (s === 0) {
+        pad(t, ch, sd * 16, 0.021); choir(t, [ch[0], ch[2]], sd * 14, 0.024);
+        note(t, mtof(ch[0] - 24), sd * 16, { vol: 0.13, a: 0.6, sus: 1, r: 1 });
+      }
+      if (s % 2 === 0) bell(t, ch[(s / 2) % 4] + 12 + (s >= 8 ? 12 : 0), 1.8, 0.04);
+    } },
+    // 真・家庭内：オルゴールのような、やさしい子守唄
+    home: { bpm: 84, play: function (n, t, sd) {
+      var s = n % 16, bar = Math.floor(n / 16) % 4, ch = [[60, 64, 67], [65, 69, 72], [67, 71, 74], [60, 64, 67]][bar];
+      if (s % 2 === 0 && HOME_MEL[bar][s / 2]) bell(t, HOME_MEL[bar][s / 2], 1.4, 0.13);
+      if (s === 0 || s === 8) note(t, mtof(ch[0] - 12), sd * 7, { type: "triangle", vol: 0.2, sus: 0.4, dec: 0.6, r: 0.4 });
+      if (s === 4 || s === 12) ch.forEach(function (m) { pluck(t, m, 0.05); });
+    } },
     // 地球：勝利のファンファーレ
     earth: { bpm: 116, play: function (n, t, sd) {
       if (n === 0) {
@@ -1182,23 +1321,57 @@ var Sound = (function () {
       if (s % 2 === 0 && Math.random() < 0.55) bell(t, pickOne([72, 74, 76, 79, 81, 84, 86, 88]), 2.6, 0.035);
       if (s >= 8 && bar % 2 === 1) pluck(t, ch[s % 4] + 12, 0.03);
     } },
-    // ∬…：不気味でバグった音
-    glitch: { bpm: 96, play: function (n, t, sd) {
-      var s = n % 16;
-      if (n % 32 === 0) {
-        note(t, mtof(36), sd * 32, { type: "sawtooth", detune: -22, vol: 0.08, lp: 260, lpTo: 1400, a: 1, sus: 1, r: 1 });
-        note(t, mtof(42), sd * 32, { type: "sawtooth", detune: 27, vol: 0.06, lp: 400, lpTo: 200, a: 1, sus: 1, r: 1 });
+    // ∬…：ノれる最終曲。4つ打ちのキック、裏のハイハット、2拍目と4拍目のクラップ、うねるベースに、不気味なバグ音が混ざる
+    // 8小節で1周：前半はドラムとベース、後半は宇宙人のフレーズと細かいハイハットが入り、最後の2拍で連打してせり上がる
+    glitch: (function () {
+      var ROOT = [36, 36, 39, 42], RIFF = [72, 0, 75, 72, 78, 0, 77, 75];
+      // うねるベース：少しずらしたのこぎり波2本のフィルターを揺らす（ワブル）。拍の頭で音を引っこめて、キックが前に出るようにする
+      function wob(t, m, dur, rate, vol, sd) {
+        var f = ctx.createBiquadFilter(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain(), sg = ctx.createGain(), sub = ctx.createOscillator();
+        f.type = "lowpass"; f.Q.value = 9; f.frequency.value = 700;
+        lfo.frequency.value = rate; lg.gain.value = 560; lfo.connect(lg); lg.connect(f.frequency);
+        g.gain.setValueAtTime(0.0001, t);
+        for (var b = 0; b < dur - 0.01; b += sd * 4) { g.gain.setValueAtTime(vol * 0.15, t + b); g.gain.linearRampToValueAtTime(vol, t + b + sd * 1.2); }
+        g.gain.setTargetAtTime(0.0001, t + dur, 0.03);
+        [-14, 14].forEach(function (dt) {
+          var o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = mtof(m); o.detune.value = dt;
+          o.connect(f); o.start(t); o.stop(t + dur + 0.2);
+        });
+        sub.frequency.value = mtof(m - 12); sg.gain.value = 0.7; sub.connect(sg); sg.connect(g);
+        f.connect(g); g.connect(cur.g);
+        sub.start(t); lfo.start(t); sub.stop(t + dur + 0.2); lfo.stop(t + dur + 0.2);
       }
-      if (s === 0 || s === 3) kick(t, 0.7);
-      if (s % 2 === 0 && Math.random() < 0.6) note(t, mtof(pickOne([72, 75, 78, 79, 84, 87])), 0.6, { detune: -45 + Math.random() * 25, vol: 0.04, sus: 0.0001, dec: 0.5, echo: 0.35, verb: 0.3 });
-      if (Math.random() < 0.3) note(t + Math.random() * sd, rnd(200, 3200), 0.05, { type: "square", vol: 0.02, sus: 0.5 });
-      if (Math.random() < 0.12) noise(t, rnd(0.03, 0.15), { ft: "bandpass", f: rnd(300, 4000), q: 8, vol: 0.18 });
-      if (n % 32 === 24) noise(t, sd * 8, { f: 800, fTo: 6000, vol: 0.06, swell: true });
-    } }
+      return { bpm: 96, play: function (n, t, sd) {
+        var s = n % 16, p = n % 128, bar = Math.floor(p / 16), root = ROOT[bar % 4], late = bar >= 4;
+        // 入り：ドン！と落ちる音
+        if (n === 0) { kick(t, 1.1, { boom: true }); note(t, 1800, 0.9, { type: "sawtooth", slide: 60, vol: 0.05, lp: 4000, r: 0.2, echo: 0.3 }); }
+        if (p === 0) noise(t, 1.5, { f: 4500, vol: 0.07, verb: 0.35 });
+        // 不気味なうなり（4小節ずつ）
+        if (n % 64 === 0) {
+          note(t, mtof(36), sd * 64, { type: "sawtooth", detune: -22, vol: 0.035, lp: 260, lpTo: 1400, a: 1, sus: 1, r: 1 });
+          note(t, mtof(42), sd * 64, { type: "sawtooth", detune: 27, vol: 0.025, lp: 400, lpTo: 200, a: 1, sus: 1, r: 1 });
+        }
+        // ドラム：4つ打ち・2拍目と4拍目のクラップ・裏のハイハット（後半は16分で刻む）
+        if (s % 4 === 0) kick(t, 1);
+        if (s === 4 || s === 12) clap(t, 0.34);
+        if (s % 4 === 2) hat(t, 0.09, true); else if (s % 2 === 1 || late) hat(t, late && s % 2 === 0 ? 0.02 : 0.035);
+        // ベース：半小節ずつ、揺れの速さを変える（8分 → 3連 → 16分）
+        if (s % 8 === 0) wob(t, root, sd * 8, [2, 2, 2, 2, 3, 3, 4, 2][(bar % 4) * 2 + s / 8] / (sd * 4), 0.085, sd);
+        // 後半：宇宙人のフレーズ（音程を少しずらして、ぞわっとさせる）
+        if (late && s % 2 === 0 && RIFF[s / 2]) note(t, mtof(RIFF[s / 2] + root - 36), sd * 1.6, { type: "square", detune: -35, vol: 0.03, lp: 3200, sus: 0.5, dec: 0.15, r: 0.06, echo: 0.3, vib: [7, 30, 0.05] });
+        // バグった音：音程のずれた高い音・短いノイズ
+        if (s % 2 === 1 && Math.random() < 0.45) note(t, mtof(pickOne([84, 87, 90, 91, 96, 99])), 0.5, { detune: -45 + Math.random() * 25, vol: 0.03, sus: 0.0001, dec: 0.4, echo: 0.35, verb: 0.3 });
+        if (Math.random() < 0.25) note(t + Math.random() * sd, rnd(200, 3200), 0.05, { type: "square", vol: 0.018, sus: 0.5 });
+        if (Math.random() < 0.1) noise(t, rnd(0.03, 0.12), { ft: "bandpass", f: rnd(300, 4000), q: 8, vol: 0.14 });
+        // せり上がり：4小節目の終わりに少し、8小節目の終わりは大きく。最後の2拍はクラップの連打と上がっていく音
+        if (n % 64 === 56) noise(t, sd * 8, { f: 800, fTo: 6000, vol: p === 120 ? 0.09 : 0.05, swell: true });
+        if (p >= 120) { clap(t, 0.12 + (p - 120) * 0.03); note(t, mtof(60 + (p - 120) * 3), sd * 0.8, { type: "square", vol: 0.025, lp: 3000, sus: 0.4, r: 0.03 }); }
+      } };
+    })()
   };
 
   // 曲ごとの音量の補正（測った大きさをそろえる。トップページの曲は、講評中の曲より少し控えめ）
-  var MOOD_GAIN = { idle: 0.7, secret: 0.9, roast: 1.7, cold: 1.2, warm: 1.65, tame: 1.1, earth: 1.05, glitch: 1.3 };
+  var MOOD_GAIN = { idle: 0.7, secret: 0.9, roast: 1.7, cold: 1.2, warm: 1.65, tame: 1.1, earth: 1.05, glitch: 0.9 };
 
   // ── 効果音 ──
   var SFX = {
@@ -1215,6 +1388,8 @@ var Sound = (function () {
     // a は段階の番号（tier）か { tier, k }。k はカットインの速さの倍率（小さいほど速い）で、ドンの位置を絵に合わせる
     cutin: function (t, a) {
       var tier = a.tier == null ? a : a.tier, k = a.k || 1, h = t + 0.32 * k;
+      // 無：ドンも鳴らさず、静かにふくらむ音と低い鐘だけ
+      if (a.quiet) { noise(t, 1.2 * k, { f: 200, fTo: 1200, vol: 0.08, swell: true, sfx: 1 }); bell(h, 60, 3, 0.05, { sfx: 1 }); return; }
       noise(t, 0.3 * k, { ft: "bandpass", f: 300, fTo: 5000, q: 1.2, vol: 0.3, swell: true, sfx: 1 });
       kick(h, 1.2, { sfx: 1, boom: tier >= 3 || k > 1.2 });
       noise(h, 0.45 + tier * 0.1, { f: 2500, vol: 0.12 + tier * 0.02, sfx: 1, verb: 0.4 });
@@ -1290,7 +1465,10 @@ var Sound = (function () {
     },
     visible: function (v) { if (!ctx) return; if (!v) ctx.suspend(); else if (!muted) ctx.resume(); },
     // 結果の段階 → 曲
-    forLevel: function (i) { return i <= 2 ? "roast" : i === 3 ? "cold" : i === 4 ? "warm" : i === 5 ? "good" : i === EARTH ? "earth" : i < KAMI ? "cosmic" : i === KAMI ? "kami" : "glitch"; },
+    forLevel: function (i) {
+      return i <= 2 ? "roast" : i === 3 ? "cold" : i === 4 ? "warm" : i === 5 ? "good" : i === EARTH ? "earth" : i < KAMI ? "cosmic" : i === KAMI ? "kami" :
+        i === GLITCH ? "glitch" : i === VOID ? "void" : i === GENESIS ? "genesis" : "home";
+    },
     // 確認用：曲や効果音をこっそり録音して、音の大きさ（ピークとRMS）を返す
     measure: async function (kind, name, secs) {
       var keep = [ctx, master, musicBus, sfxBus, verb, echo, noiseBuf, cur];
@@ -1347,13 +1525,15 @@ function saveBest(v) { try { localStorage.setItem("buzz_best", String(v)); } cat
 
 // 宇宙から上は、実際に届くまで「霧」の中（名前も絵文字も出さない）
 function isVisible(i, unlocked) { return !LV[i].h || unlocked.indexOf(i) >= 0; }
+// エンドコンテンツ（e）は、シークレットの数にも踏破の数にも入れない（存在を知らせない）
+function mainUnlocked() { return loadUnlocked().filter(function (i) { return LV[i] && !LV[i].e; }); }
 function secretCount() {
-  return loadUnlocked().length + " / " + LV.filter(function (lv) { return lv.s; }).length;
+  return mainUnlocked().length + " / " + LV.filter(function (lv) { return lv.s && !lv.e; }).length;
 }
 // 踏破：届いたことのある段階の数（ふつうの段階は最高到達までぜんぶ、シークレットは実際に届いたものだけ）
 function reachedCount() {
   var best = loadBest();
-  return (best < 0 ? 0 : Math.min(best, EARTH) + 1) + loadUnlocked().length;
+  return (best < 0 ? 0 : Math.min(best, EARTH) + 1) + mainUnlocked().length;
 }
 function renderMyStats() {
   var st = loadStats(), top = loadBest();
@@ -1386,8 +1566,9 @@ function renderMap(nowIndex) {
   var unlocked = loadUnlocked(), best = loadBest();
   var map = $("map"); map.innerHTML = "";
   var strip = $("mapstrip"); strip.innerHTML = "";
-  var fogged = LV.some(function (lv, i) { return !isVisible(i, unlocked); });
+  var fogged = LV.some(function (lv, i) { return !lv.e && !isVisible(i, unlocked); });
   LV.forEach(function (lv, i) {
+    if (lv.e) return;   // エンドコンテンツはバズマップに載せない（霧の行も出さない）
     if (i === 7) { var d = document.createElement("li"); d.className = "divider"; map.append(d); }
     if (lv.h && i === LV.findIndex(function (x) { return x.h; }) && fogged) { var fl = document.createElement("li"); fl.className = "fogline"; map.append(fl); }
     if (!isVisible(i, unlocked)) {
@@ -1406,7 +1587,7 @@ function renderMap(nowIndex) {
     li.append(e, n); map.append(li);
     var s = document.createElement("span"); s.textContent = open ? lv.emoji : "❔"; strip.append(s);
   });
-  $("unlockCount").textContent = "踏破 " + reachedCount() + " / " + LV.length;
+  $("unlockCount").textContent = "踏破 " + reachedCount() + " / " + MAIN;
 }
 
 // ── 入力欄 ──
@@ -1436,11 +1617,12 @@ function confetti(count) {
     document.body.append(c); setTimeout(c.remove.bind(c), 5000);
   }
 }
-function countUp(el, target, ms) {
-  var start = performance.now();
+// big：京から上（超バズ）のときは桁ごとに数える。万→億→兆→京……と単位が順に上がっていく
+function countUp(el, target, ms, big) {
+  var start = performance.now(), digits = Math.log10(Math.max(target, 1));
   function tick(now) {
     var t = Math.min((now - start) / ms, 1), eased = 1 - Math.pow(1 - t, 3);
-    el.textContent = Math.floor(target * eased).toLocaleString();
+    el.textContent = big ? likeNum(t < 1 ? Math.pow(10, digits * eased) : target, true) : Math.floor(target * eased).toLocaleString();
     if (t < 1) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -1524,22 +1706,48 @@ var SCENES = [
     return h; } },
   { cls: "s-glitch", sub: "∃∃∃ 観測 不能 ∃∃∃", html: function () {
     var syms = Array.from("∬∃@▽◇◎＄￡※⊆〒^");
-    // 宇宙人のまわりを、記号の輪が2つ逆向きに回る（記号は文字化けし続ける）
-    var h = "";
-    [[86, 16, 16], [58, 10, -11]].forEach(function (g) {
-      var size = "min(" + g[0] + "vmin," + Math.round(g[0] * 7) + "px)";
-      h += '<div class="gring" style="width:' + size + ';height:' + size + ';animation-duration:' + Math.abs(g[2]) + 's' + (g[2] < 0 ? ';animation-direction:reverse' : '') + '">';
-      for (var k = 0; k < g[1]; k++) {
-        var a = k / g[1] * Math.PI * 2, c = syms[k % syms.length];
-        h += '<span class="ob' + (c === "@" || c === "^" ? " n" : "") + '" style="left:' + (50 + Math.cos(a) * 50) + '%;top:' + (50 + Math.sin(a) * 50) + '%">' + c + '</span>';
+    // 記号は class="ob" にして、文字化けし続けるようにする
+    function sym(c, cls, style) { return '<span class="' + cls + 'ob' + (c === "@" || c === "^" ? " n" : "") + '" style="' + style + '">' + c + '</span>'; }
+    // 暗い渦の上に、ワープトンネル：記号の輪が6つ、0.4秒おきに奥から飛んでくる（輪ごとに回る向きが逆）
+    var h = '<div class="gswirl"></div><div class="gswirl b"></div><div class="gtunnel">';
+    for (var r = 0; r < 6; r++) {
+      h += '<div class="gring' + (r % 2 ? " m" : "") + '" style="--gr:' + (r % 2 ? -150 : 150) + 'deg;animation-delay:-' + (r * 0.4).toFixed(1) + 's">';
+      for (var k = 0; k < 12; k++) {
+        var a = (k / 12 + r * 0.04) * Math.PI * 2;
+        h += sym(syms[(k + r) % syms.length], "", "left:" + (50 + Math.cos(a) * 50) + "%;top:" + (50 + Math.sin(a) * 50) + "%");
       }
       h += "</div>";
-    });
-    h += '<div class="gtext"></div><img class="alienimg" src="/gods/alien.png" alt="">';
-    for (var i = 0; i < 40; i++) {
-      var ch = pickOne(syms);
-      h += '<span class="sym ob' + (ch === "@" || ch === "^" ? " n" : "") + '" style="left:' + rnd(0, 100) + '%;animation-duration:' + rnd(1, 3) + 's;animation-delay:' + rnd(0, 2) + 's">' + ch + '</span>';
     }
+    // 中心から外へ伸びる緑と紫の光の筋
+    for (var i = 0; i < 36; i++) h += '<div class="streak' + (i % 2 ? " m" : "") + '" style="rotate:' + rnd(0, 360) + 'deg;animation-delay:-' + rnd(0, 1.1) + 's"></div>';
+    h += "</div>";
+    for (var j = 0; j < 28; j++) h += sym(pickOne(syms), "sym ", "left:" + rnd(0, 100) + "%;animation-duration:" + rnd(1, 3) + "s;animation-delay:" + rnd(0, 2) + "s");
+    // 宇宙人：拍ごとに脈打つ。まわりを色ちがいの分身が4体回り、緑と紫の波紋がかわりばんこに広がる
+    h += '<div class="galien"><div class="gwave"></div><div class="gwave m"></div><div class="gorbit">';
+    [120, 200, 260, 320].forEach(function (hue, k) {
+      var a = k / 4 * Math.PI * 2;
+      h += '<img class="gclone" src="/gods/alien.png" alt="" style="left:' + (50 + Math.cos(a) * 50) + '%;top:' + (50 + Math.sin(a) * 50) + '%;filter:hue-rotate(' + hue + 'deg)">';
+    });
+    h += '</div><img class="alienimg" src="/gods/alien.png" alt=""></div><div class="gtext"></div>';
+    return h; } },
+  // ── エンドコンテンツ ──
+  // 無：ゆっくり白くなり、小さな点が消えていく。音もほとんどない（一気に明るくしない）
+  { cls: "s-void", sub: "いいねも、音も、ワシも。すべてが、無になった。", html: '<div class="vdot"></div><div class="vtext">……</div>' },
+  // 創世：光が広がり、星や惑星が生まれ、真ん中で芽が出る
+  { cls: "s-genesis", sub: "無の中で、あなたのツイートが新しい宇宙を生んだ。", html: function () {
+    var h = '<div class="gn-light"></div><div class="gn-ring"></div><div class="gn-ring" style="animation-delay:1.5s"></div>';
+    [["🌍", 18, 26, .8], ["🪐", 76, 22, 1.2], ["🌕", 70, 64, 1.6], ["☄️", 14, 66, 2]].forEach(function (b) {
+      h += '<span class="e gn-body" style="left:' + b[1] + '%;top:' + b[2] + '%;animation-delay:' + b[3] + 's">' + b[0] + '</span>';
+    });
+    return h + '<span class="e sprout">🌱</span>'; } },
+  // 真・家庭内：最初の居間に夕日。寝転んでいた妹が起き上がって「……おもろ」。家族がはしゃぐ
+  { cls: "s-truehome", sub: "すべてを越えて、家に帰ってきた。妹が、笑った。", html: function () {
+    var h = '<div class="th-window"></div><div class="floor"></div>' +
+      '<span class="e" style="left:8%;bottom:28%;font-size:min(13vw,110px)">📺</span><span class="e" style="left:70%;bottom:28%;font-size:min(12vw,100px)">🛋️</span>' +
+      '<span class="e th-sis">👧</span><div class="bubble th-omoro">……おもろ</div>' +
+      '<span class="e th-fam" style="left:22%">👩</span><span class="e th-fam" style="left:34%;animation-delay:.15s">👨</span>' +
+      '<span class="e th-fam" style="left:82%;animation-delay:.3s">👵</span><span class="e th-dog">🐕</span>';
+    for (var i = 0; i < 12; i++) h += '<span class="th-heart" style="left:' + rnd(10, 90) + '%;animation-duration:' + rnd(3, 5) + 's;animation-delay:' + rnd(1.5, 4) + 's">❤️</span>';
     return h; } }
 ];
 
@@ -1547,7 +1755,9 @@ var SCENES = [
 var TIERS = [
   { cls: "t0", stamp: "チャンス!", color: "#3b82f6" }, { cls: "t1", stamp: "アツい!!", color: "#16a34a" }, { cls: "t2", stamp: "激アツ!!", color: "#dc2626" },
   { cls: "t3", stamp: "超激アツ!!!", color: "#eab308" }, { cls: "t4", stamp: "確定!?", color: "#db2777" }, { cls: "t5", stamp: "神確定", color: "#f59e0b" },
-  { cls: "t6", stamp: "∃RR0R", color: "#22c55e" }
+  { cls: "t6", stamp: "∃RR0R", color: "#22c55e" },
+  // エンドコンテンツ：無（白と灰の静けさ）・創世（夜明けの色）・真・家庭内（夕焼けのあたたかさ）
+  { cls: "t7", stamp: "……", color: "#a1a1aa" }, { cls: "t8", stamp: "創世", color: "#38bdf8" }, { cls: "t9", stamp: "おかえり", color: "#fb923c" }
 ];
 // 上昇の段取り。シークレットは「前に届いたことがある段」と「今回の到達段」だけ見せる（まだ見ていない段のネタバレを防ぐ）
 // 通過するシークレットはだんだん速く、最後の1段の前で「溜め」て、最後はスローで大きく見せる
@@ -1556,7 +1766,7 @@ function climbPlan(idx, seen) {
   var steps = [], pass = [];
   for (var i = 0; i <= idx; i++) {
     if (i < 7) steps.push({ i: i, ms: idx >= 7 ? 420 - i * 30 : 380 });   // シークレットまで行くときは、加速しながら突入する
-    else if (i === idx) steps.push({ i: i, ms: i === GLITCH ? 3000 : i >= KAMI ? 2800 : 2400, k: 1.5, final: true });
+    else if (i === idx) steps.push({ i: i, ms: i >= GLITCH ? 3000 : i >= KAMI ? 2800 : 2400, k: 1.5, final: true });
     else if (seen.indexOf(i) >= 0) { var p = { i: i }; steps.push(p); pass.push(p); }
   }
   pass.forEach(function (p, j) {
@@ -1571,13 +1781,14 @@ function cutIn(stage, p, isNew) {
   c.style.setProperty("--d", p.ms + "ms"); c.style.setProperty("--k", p.k);
   c.innerHTML = '<div class="ci-lines"></div><div class="ci-band"><img class="ci-god" alt=""><div class="ci-txt"><div class="ci-label"></div><div class="ci-name"></div></div></div>' +
     '<div class="ci-stamp"></div>' + (p.final ? '<div class="ci-ring"></div>' : "") + '<div class="ci-flash"></div>';
-  c.querySelector(".ci-god").src = "/gods/" + (i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
-  c.querySelector(".ci-label").textContent = i <= 9 ? "SECRET " + (i - 6) : "ULTRA SECRET";
+  c.querySelector(".ci-god").src = "/gods/" + (END_LOOK[i] ? END_LOOK[i].god : i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
+  c.querySelector(".ci-label").textContent = i <= 9 ? "SECRET " + (i - 6) : LV[i].e ? "？？？" : "ULTRA SECRET";
   var nm = c.querySelector(".ci-name"); nm.style.setProperty("--n", Array.from(LV[i].name).length); obf(nm, LV[i].name);
   obf(c.querySelector(".ci-stamp"), TIERS[tier].stamp);
   if (isNew) { var nb = document.createElement("div"); nb.className = "ci-new"; nb.textContent = "NEW!! 初到達"; c.append(nb); }
   stage.append(c);
-  Sound.sfx("cutin", { tier: tier, k: p.k });
+  // エンドコンテンツの音：無は静かに、創世は合唱、真・家庭内は鐘
+  Sound.sfx("cutin", i === VOID ? { tier: 0, k: p.k, quiet: true } : { tier: i === GENESIS ? 5 : i === TRUEHOME ? 4 : tier, k: p.k });
   return c;
 }
 
@@ -1599,8 +1810,9 @@ async function playCinema(d, seen) {
   stage.innerHTML = ""; stage.append(climb, hud);
   var plan = climbPlan(idx, seen), total = idx >= 7 ? 1300 + TAME_MS : 0;
   plan.forEach(function (p) { total += p.ms; });
-  countUp($("hlike"), d.likes, total + 300);
-  countUp($("hrt"), d.retweets, total + 300);
+  var big = d.likes >= 1e16;
+  countUp($("hlike"), d.likes, total + 300, big);
+  countUp($("hrt"), d.retweets, total + 300, big);
   var prev = null;   // 1つ前のカットイン（次のカットインと少し重ねて、つなぎ目を見せない）
   for (var s = 0; s < plan.length && !skipped; s++) {
     var p = plan[s], i = p.i;
@@ -1640,9 +1852,9 @@ async function playCinema(d, seen) {
   var scene = document.createElement("div"); scene.className = "scene " + sc.cls;
   scene.innerHTML = typeof sc.html === "function" ? sc.html() : sc.html;
   scene.querySelectorAll(".gtext").forEach(function (g) { obf(g, LV[GLITCH].name); });
-  if (idx >= 7 && idx !== KAMI) stars(scene, 80);
+  if (idx >= 7 && idx !== KAMI && idx !== VOID && idx !== TRUEHOME) stars(scene, 80);
   if (d.secret) {
-    var u = document.createElement("div"); u.className = "unlock"; u.textContent = "🔓 SECRET UNLOCKED"; scene.append(u);
+    var u = document.createElement("div"); u.className = "unlock" + (LV[idx].e ? " end" : ""); u.textContent = LV[idx].e ? "🗺️ 地図にない場所" : "🔓 SECRET UNLOCKED"; scene.append(u);
   }
   var cap = document.createElement("div"); cap.className = "caption";
   var lvEl = document.createElement("div"); lvEl.className = "lv"; obf(lvEl, d.emoji + " " + d.level + "レベル");
@@ -1650,8 +1862,8 @@ async function playCinema(d, seen) {
   cap.append(lvEl, subEl); scene.append(cap);
   stage.innerHTML = ""; stage.append(scene);
   Sound.mood(Sound.forLevel(idx));
-  if (d.secret) Sound.sfx("unlock");
-  if (idx >= 4) confetti(idx >= 7 ? 140 : 70);
+  if (d.secret && idx !== VOID) Sound.sfx("unlock");
+  if (idx >= 4 && idx !== VOID) confetti(idx >= 7 ? 140 : 70);
   skipped = false;
   await wait(idx >= 7 ? 4200 : 3600);
 
@@ -1665,7 +1877,14 @@ var AXES = [["empathy", "共感"], ["surprise", "意外性"], ["fun", "ネタ度
 var WHO = { roast: "😡 バズ神の講評（激辛）", cold: "😐 バズ神の講評（塩）", warm: "😏 バズ神の講評（なかなか）", good: "😆 バズ神の講評（ほめ）", praise: "😭 バズ神の講評（大絶賛）" };
 var WHO_KAMI = "⛩️ バズ神の講評（ひれ伏し）", WHO_ALIEN = "👁️ ∃ズ神の講∬（解読不能）";
 var SYMS = Array.from("∬∃▽◇◎＄￡※⊆〒");
-var TAGS = { 6: ["MAX", "max"], 7: ["OVER!", ""], 8: ["OVER!!", ""], 9: ["OVER!!!", ""], 10: ["LIMIT BREAK", "blink"], 11: ["時空のゆがみ", "blink"], 12: ["神域", "max"], 13: ["∃RR0R", "blink"] };
+var TAGS = { 6: ["MAX", "max"], 7: ["OVER!", ""], 8: ["OVER!!", ""], 9: ["OVER!!!", ""], 10: ["LIMIT BREAK", "blink"], 11: ["時空のゆがみ", "blink"], 12: ["神域", "max"], 13: ["∃RR0R", "blink"],
+  14: ["無", "void"], 15: ["創世", "max"], 16: ["家族満点", "max"] };
+// エンドコンテンツの見た目（バズ神の絵・吹き出し・見出し）
+var END_LOOK = {
+  14: { god: "idle", godCls: "vanish", cls: "void", who: "🕳️ バズ神の講評（……）" },
+  15: { god: "kami", godCls: "", cls: "genesis", who: "🌱 バズ神の講評（創世記）" },
+  16: { god: "praise", godCls: "", cls: "home", who: "🏡 バズ神の講評（おかえり）" }
+};
 var lastResult = null, shownResult = null;   // shownResult：いま結果画面に出している結果（自己ベストを開いたときはそれ）
 
 function randSyms(n) { var s = ""; for (var i = 0; i < n; i++) s += pickOne(SYMS); return s; }
@@ -1695,20 +1914,24 @@ $("speech").addEventListener("click", function () { typeSkip = true; });
 // バズ力と4つのパラメーター（地球から上は限界突破）
 function renderScore(d) {
   var idx = d.levelIndex, pts = $("pts"), tag = TAGS[idx];
-  $("ptsBox").className = "pts" + (idx >= 7 ? " over" : "");
+  $("ptsBox").className = "pts" + (idx >= 7 && idx !== VOID ? " over" : "");
   pts.classList.remove("flick");
-  if (idx <= 10) countUp(pts, LIMIT[idx] ? LIMIT[idx][0] : d.score, 900); else putScore(pts, d.score, idx);
-  if (idx === GLITCH) obf($("ptsMax"), "◎＄￡"); else $("ptsMax").textContent = "100";
+  if (idx <= 10 || idx >= VOID) countUp(pts, LIMIT[idx] ? LIMIT[idx][0] : d.score, 900); else putScore(pts, d.score, idx);
+  if (idx === GLITCH) obf($("ptsMax"), "◎＄￡"); else $("ptsMax").textContent = idx === VOID ? "0" : idx === GENESIS ? "1" : "100";
   var lb = $("lb"); lb.className = "lb" + (tag && tag[1] ? " " + tag[1] : ""); obf(lb, tag ? tag[0] : "");
   $("scoreCard").classList.toggle("glitchbox", idx === GLITCH);
 
   var axes = $("axes"); axes.innerHTML = ""; var bars = [];
-  axes.className = "axes" + (idx === EARTH ? " max" : idx >= 7 && idx <= 10 ? " over" : idx === FOURD ? " over warp" : idx === KAMI ? " over inf" : "");
+  axes.className = "axes" + (idx === EARTH || idx === GENESIS || idx === TRUEHOME ? " max" : idx >= 7 && idx <= 10 ? " over" : idx === FOURD ? " over warp" : idx === KAMI ? " over inf" : "");
   AXES.forEach(function (a) {
     var name = document.createElement("span");
     var bar = document.createElement("div"); bar.className = "bar"; var fill = document.createElement("i"); bar.append(fill);
     var val = document.createElement("b"), pct;
-    if (idx === GLITCH) {
+    if (idx === VOID || idx === GENESIS) {
+      // 無はすべて 0 / 0、創世は新しい宇宙の最初の 1 / 1
+      var n = idx === VOID ? 0 : 1;
+      name.textContent = a[1]; val.textContent = n + " / " + n; pct = n * 100;
+    } else if (idx === GLITCH) {
       obf(name, randSyms(3)); obf(val, randSyms(2) + " / " + randSyms(2)); pct = rnd(30, 180);
     } else if (idx === KAMI) {
       name.textContent = a[1]; val.textContent = "∞ / 25"; pct = 140;
@@ -1743,21 +1966,24 @@ async function showResult(d) {
   shownResult = d;
   res.classList.add("show"); res.scrollTop = 0;
   document.body.style.overflow = "hidden";
-  var g = godImg(idx === KAMI ? "kami" : idx === GLITCH ? "praise" : d.tone);
+  var look = END_LOOK[idx];
+  var g = godImg(look ? look.god : idx === KAMI ? "kami" : idx === GLITCH ? "praise" : d.tone);
+  if (look && look.godCls) g.classList.add(look.godCls);
   $("bigGod").innerHTML = ""; $("bigGod").append(g);
-  $("speech").className = "speech " + (idx === KAMI ? "kami" : idx === GLITCH ? "glitch" : d.tone);
-  obf($("who"), (idx === KAMI ? WHO_KAMI : WHO[d.tone]) + pattern);
+  $("speech").className = "speech " + (look ? look.cls : idx === KAMI ? "kami" : idx === GLITCH ? "glitch" : d.tone);
+  obf($("who"), (look ? look.who : idx === KAMI ? WHO_KAMI : WHO[d.tone]) + (look ? "" : pattern));
   if (idx === GLITCH) morphGod(g, pattern);
-  $("secretTag").innerHTML = d.secret ? '<span class="secretTag">🔓 SECRET</span>' : "";
+  $("secretTag").innerHTML = look ? '<span class="secretTag end">🗺️ 地図にない場所</span>' : d.secret ? '<span class="secretTag">🔓 SECRET</span>' : "";
   obf($("lvname"), d.emoji + " " + d.level + "レベル");
   $("rtext").textContent = d.text;
-  $("rlike").textContent = d.likes.toLocaleString();
-  $("rrt").textContent = d.retweets.toLocaleString();
-  $("rrep").textContent = Math.floor(d.likes * 0.03).toLocaleString();
+  var big = d.likes >= 1e16;
+  $("rlike").textContent = likeNum(d.likes, big);
+  $("rrt").textContent = likeNum(d.retweets, big);
+  $("rrep").textContent = likeNum(d.likes * 0.03, big);
   renderScore(d);
 
   var box = $("replies"); box.innerHTML = "";
-  if (idx >= EARTH) confetti(100);
+  if (idx >= EARTH && idx !== VOID) confetti(100);   // 無は静かに
   if (!(await typeText($("comment"), d.comment, idx, run))) return;
   for (var i = 0; i < d.replies.length && run === resultRun; i++) {
     var r = d.replies[i];
@@ -1825,7 +2051,11 @@ postBtn.addEventListener("click", async function () {
   saveStats(st);
   if (data.secret) {
     var u = loadUnlocked();
-    if (u.indexOf(data.levelIndex) < 0) { u.push(data.levelIndex); saveUnlocked(u); setTimeout(function () { toast("🔓 シークレット「" + data.level + "」を解放！"); }, 400); }
+    if (u.indexOf(data.levelIndex) < 0) {
+      u.push(data.levelIndex); saveUnlocked(u);
+      var unlockMsg = LV[data.levelIndex].e ? LV[data.levelIndex].t : "🔓 シークレット「" + data.level + "」を解放！";
+      setTimeout(function () { toast(unlockMsg); }, 400);
+    }
     // 見えている最後のシークレット（銀河団）に初めて届いたら、霧の向こうをほのめかす
     if (data.levelIndex === 9 && seen.indexOf(9) < 0 && !seen.some(function (i) { return LV[i] && LV[i].h; })) setTimeout(function () { toast("🌫️ 霧の向こうに、まだ何かある気配がする……"); }, 2600);
   }
@@ -1833,9 +2063,10 @@ postBtn.addEventListener("click", async function () {
 
   if (data.wave) setTimeout(function () { toast("🌊 バズの波に乗った！ いつもより遠くまで届きそうじゃ……"); }, 300);
   await playCinema(data, seen);
+  if (data.likes >= 1e16) setTimeout(function () { toast("🤯 いいねが" + bigUnit(data.likes) + "を突破！"); }, 600);   // 超バズ
   renderMap(data.levelIndex);
   renderMyStats(); loadTop3();
-  if (data.levelIndex === GLITCH) renderMiniGod();   // ∬… に届いたら、トップのバズ神も宇宙人に
+  if (data.levelIndex === GLITCH || data.levelIndex === TRUEHOME) renderMiniGod();   // ∬… で宇宙人に、真・家庭内で元のすがたに
   postBtn.disabled = false;
   await showResult(data);
 });
@@ -1843,7 +2074,7 @@ postBtn.addEventListener("click", async function () {
 $("share").addEventListener("click", function () {
   var d = shownResult || lastResult;
   if (!d) return;
-  var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + d.level + "レベルのバズ！ ❤️ " + d.likes.toLocaleString() + " #ツイートバズシミュレーター";
+  var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + d.level + "レベルのバズ！ ❤️ " + likeNum(d.likes) + " #ツイートバズシミュレーター";
   window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(location.origin + "/"), "_blank");
 });
 $("again").addEventListener("click", function () {
@@ -1885,7 +2116,7 @@ async function loadBoard() {
     rank.textContent = tab === "history" ? item.emoji : medals[i] || String(i + 1);
     var txt = document.createElement("span"); txt.className = "txt"; txt.textContent = item.text;
     var meta = document.createElement("span"); meta.className = "meta";
-    var likes = "❤️ " + Number(item.likes).toLocaleString();
+    var likes = "❤️ " + likeNum(item.likes);
     if (tab !== "history") meta.append(item.emoji + " ");
     // 並べている数字を先に出す
     if (tab === "likes") meta.append(likes, " ・ ", scoreSpan(item, "点"));
@@ -1968,13 +2199,15 @@ $("adminOut").addEventListener("click", function () {
 });
 
 // ── 右パネルのミニバズ神 ──
-// ∬… に届いたことがあるブラウザでは、トップのバズ神も宇宙人のまま。ヒントも宇宙人の言葉になる（記号は文字化けする）
+// ∬… に届いたあとは、トップのバズ神も宇宙人のまま。ヒントも宇宙人の言葉になる（記号は文字化けする）
+// エンドコンテンツの最後「真・家庭内」に届くと、家に帰ってきて元のすがたに戻る
 var ALIEN_TIPS = [
   "オチ ヲ ツケル ト 点 ガ ∬∃ ノビル ノジャ", "「」 ヲ ツカウ ト ◎◎ ウケル ノジャ", "最後 ノ 一行 デ ⊆〒⊆ 裏切ル ノジャ",
   "ハッシュタグ ハ 2コ マデ ＄＄ ソレ イジョウ ハ ノイズ", "ワシ ノ 目 ハ 7ツ。ドノ 目 デモ アナタ ヲ 見テ オル",
   "∃∃∃ ワシ ハ モウ 元ニ 戻レン ∃∃∃ 気ニ スルナ", "右下 デ 音量 ヲ ▽◇ カエラレル ノジャ", "アナタ ハ 霧 ノ 向コウ ヲ ※※ 見タ。ワシ モ 見タ"
 ];
-function isAlienGod() { return loadUnlocked().indexOf(GLITCH) >= 0; }
+// ∬… に届いてから、真・家庭内に帰ってくるまでのあいだは宇宙人
+function isAlienGod() { var u = loadUnlocked(); return u.indexOf(GLITCH) >= 0 && u.indexOf(TRUEHOME) < 0; }
 function renderMiniGod() {
   var alien = isAlienGod();
   $("miniGod").innerHTML = ""; $("miniGod").append(godImg(alien ? "alien" : "idle"));
