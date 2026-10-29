@@ -948,6 +948,8 @@ function levelOf(item) {
   for (var j = LV.length - 1; j >= 0; j--) if (item.score >= LV[j].min) return j;
   return 0;
 }
+// 「地球レベル」のように段階名に「レベル」を付ける。エンドコンテンツは「無」「創世」「真・家庭内」のまま
+function lvLabel(item) { return item.level + (LV[levelOf(item)].e ? "" : "レベル"); }
 function scoreText(score, idx) {
   if (idx === FOURD) return "9999";
   if (idx === KAMI) return "∞";
@@ -1567,7 +1569,7 @@ function renderBestPost() {
   var h = document.createElement("small"); h.textContent = "🏅 自己ベストの投稿";
   var t = document.createElement("div"); t.className = "bp-text"; t.textContent = bp.text;
   var m = document.createElement("div"); m.className = "bp-meta";
-  m.append(obf(document.createElement("span"), bp.emoji + " " + bp.level + "レベル ・ "), scoreSpan(bp, "点"), " ・ ❤️ " + compactNum(bp.likes));
+  m.append(obf(document.createElement("span"), bp.emoji + " " + lvLabel(bp) + " ・ "), scoreSpan(bp, "点"), " ・ ❤️ " + compactNum(bp.likes));
   var b = document.createElement("button"); b.className = "btn sub wide"; b.textContent = "この結果をもう一度見る";
   b.addEventListener("click", function () { Sound.init(); Sound.mood(Sound.forLevel(bp.levelIndex)); showResult(bp); });
   el.append(h, t, m, b);
@@ -1930,7 +1932,7 @@ async function playCinema(d, seen) {
     var u = document.createElement("div"); u.className = "unlock" + (LV[idx].e ? " end" : ""); u.textContent = LV[idx].e ? "🗺️ 地図にない場所" : "🔓 SECRET UNLOCKED"; scene.append(u);
   }
   var cap = document.createElement("div"); cap.className = "caption";
-  var lvEl = document.createElement("div"); lvEl.className = "lv"; obf(lvEl, d.emoji + " " + d.level + "レベル");
+  var lvEl = document.createElement("div"); lvEl.className = "lv"; obf(lvEl, d.emoji + " " + lvLabel(d));
   var subEl = document.createElement("div"); subEl.className = "sub"; obf(subEl, sc.sub);
   cap.append(lvEl, subEl); scene.append(cap);
   stage.innerHTML = ""; stage.append(scene);
@@ -2047,7 +2049,7 @@ async function showResult(d) {
   obf($("who"), (look ? look.who : idx === KAMI ? WHO_KAMI : WHO[d.tone]) + (look ? "" : pattern));
   if (idx === GLITCH) morphGod(g, pattern);
   $("secretTag").innerHTML = look ? '<span class="secretTag end">🗺️ 地図にない場所</span>' : d.secret ? '<span class="secretTag">🔓 SECRET</span>' : "";
-  obf($("lvname"), d.emoji + " " + d.level + "レベル");
+  obf($("lvname"), d.emoji + " " + lvLabel(d));
   $("rtext").textContent = d.text;
   $("unlistedNote").classList.toggle("show", !!d.unlisted);   // 下ネタ・URL はランキングに出さない（data.js の isUnlisted）
   var big = d.likes >= 1e16;
@@ -2087,7 +2089,7 @@ function renderLast() {
   var el = $("last"); if (!lastResult || lastResult.test) return;
   el.innerHTML = "";
   var t = document.createElement("div"); t.style.fontWeight = "800";
-  t.append(obf(document.createElement("span"), "前回の結果：" + lastResult.emoji + " " + lastResult.level + "レベル（"), scoreSpan(lastResult, "点）"));
+  t.append(obf(document.createElement("span"), "前回の結果：" + lastResult.emoji + " " + lvLabel(lastResult) + "（"), scoreSpan(lastResult, "点）"));
   var c = putText(document.createElement("div"), lastResult.comment, lastResult.levelIndex);
   c.style.cssText = "color:var(--sub);font-size:14px;margin:6px 0 10px";
   var b = document.createElement("button"); b.className = "btn sub"; b.textContent = "結果をもう一度見る";
@@ -2151,7 +2153,7 @@ postBtn.addEventListener("click", async function () {
 $("share").addEventListener("click", function () {
   var d = shownResult || lastResult;
   if (!d) return;
-  var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + d.level + "レベルのバズ！ ❤️ " + likeNum(d.likes) + " #ツイートバズシミュレーター";
+  var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + lvLabel(d) + "のバズ！ ❤️ " + likeNum(d.likes) + " #ツイートバズシミュレーター";
   window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(location.origin + "/"), "_blank");
 });
 $("again").addEventListener("click", function () {
