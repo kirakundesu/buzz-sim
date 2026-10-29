@@ -10,14 +10,20 @@
 
 ## アプリの概要
 - ツイート文を入力すると、バズり具合を採点して「家庭内〜地球」（＋シークレット段階）のどこまで届くかを演出つきで表示する。
+- BGMと効果音つき（Web Audio でその場で合成。音声ファイルなし）。
 - 本番URL: https://buzz-sim.kira-buzz.workers.dev
 - 構成: Cloudflare Workers ＋ D1 ＋ Static Assets（AIは使っていない）
 
 ## ファイル構成
 - `src/index.js`：サーバー。採点（ルールベース）、API、D1への保存
-- `src/data.js`：13段階の定義、テーマ判定の正規表現、講評・リプライ集
-- `src/page.js`：画面全体（HTML/CSS/JS）を `String.raw` のテンプレート文字列で返す
+- `src/data.js`：14段階の定義、テーマ判定の正規表現。講評・リプライは src/lines/ から読み込む
+- `src/lines/`：講評とリプライの文章
+  - 段階ごと（home village town pref nation asia earth solar galaxy cluster universe fourd kami glitch）：`{ comments: [100個], replies: [[名前, ID, 本文] 100個] }`
+  - tone ごと（tone-roast / tone-cold / tone-praise）：`{ comments: { パターン: [...] }, replies: { パターン: [[...], ...] } }`。パターン別リプライは1つをランダムに選ぶ
+- `src/page.js`：画面全体（HTML/CSS/JS）を `String.raw` のテンプレート文字列で返す。BGM・効果音（`Sound`）もここ
 - `public/ogp.png`：OGP画像（1200×630）
+- `public/gods/*.png`：バズ神のアニメPNG（idle think roast cold praise kami alien）。`npm run gods`（= `tools/make-gods.mjs`）で作り直す。手で編集しない
+- `test/index.spec.js`：テスト（`npx vitest run`）
 - `wrangler.jsonc`：設定（下記）
 - `.dev.vars`：ローカル用の合言葉（`ADMIN_KEY=...`）。gitに入れない
 
@@ -43,7 +49,10 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 - 共感・意外性・面白さ・拡散力の4軸×25点＝100点。文章のハッシュで決まる個性＋少しのランダム。
 - オチ・会話文（「」）・裏切り・あるあるテーマがそろうとコンボ加点。毒・連打・絵文字だけは減点。
 - 段階（minScore）：家庭内0 / 村14 / 町27（毒舌）→ 県40 / 全国50 / アジア60（塩対応）→ 地球70（絶賛）
-  シークレット：太陽系77 / 銀河83 / 銀河団88 / 宇宙92 / 四次元96 / ∬∃@▽◇◎＄￡※⊆〒^^ 99
+  シークレット：太陽系77 / 銀河83 / 銀河団88 / 宇宙92 / 四次元96 / 神98 / ∬∃@▽◇◎＄￡※⊆〒^^ 99（番号は0始まりで 神=12、∬…=13）
+- 宇宙・四次元・神・∬… は「シークレットの中のシークレット」（`hidden: true`）。一度届くまでバズマップにも数にも `/api/levels` にも出さない
+- バズ力の表示：D1 には素の点数を保存し、画面で段階ごとに変換する（page.js の `LIMIT` と `scoreText`）。地球100（各25 MAX）/ 太陽系120 / 銀河150 / 銀河団200 / 宇宙500（LIMIT BREAK）/ 四次元は数字がチラつく / 神∞ / ∬… は記号。ランキング・履歴・シェア・前回の結果も同じ変換を使う
+- 太陽系から上は1段ごとにパチンコ風カットイン（青→緑→赤→金→虹→神→グリッチ）。∬… ではバズ神が宇宙人に変身する
 - 講評は「バズ神」（一人称ワシ、語尾〜じゃ）。段階ごとのベース講評＋テーマ別の一言を組み合わせる。
 
 ## API
@@ -58,13 +67,22 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 - Windowsでは国旗絵文字が表示されないので使わない。
 - スマホ表示も確認する（トーストはスマホ2件・PC4件まで）。
 - 偽の「トレンド」「通知」パネルは誤解を招くので廃止済み。復活させない。
-- ブラウザ保存：localStorage `buzz_unlocked` `buzz_best` `buzz_stats`、sessionStorage `buzz_admin`
+- ブラウザ保存：localStorage `buzz_unlocked` `buzz_best` `buzz_stats` `buzz_ver`（保存データの版。神の追加で ∬… の番号を12→13に引っ越したので2）`buzz_mute`、sessionStorage `buzz_admin`
+  - 段階を途中に足すと保存済みの番号がずれる。そのときは `buzz_ver` を上げて引っ越し処理を足す
+- ∬… の記号（∬∃@▽◇◎＄￡※⊆〒^）はマイクラの §k のように文字化けし続ける。システムの文字は `obf(要素, 文字)` で入れる（中で textContent を使う）。ユーザーの入力文には使わない
+- 音はブラウザの決まりで、最初のクリックかキー入力から鳴る。右下の🔊で消せる。タブを隠すと止まる
+- 段階を足すときは page.js の `LV` `CLIMB_BG` `LIKERS` `SCENES` も同じ順番で足す
 
 ## デプロイ
 - `npx wrangler deploy`（wranglerはこのPCでログイン済み。サブドメインは kira-buzz）
 - 合言葉の変更：`npx wrangler secret put ADMIN_KEY`
 - 変更したら、デプロイ前に `npx wrangler dev` で動作確認すると安全。
+- 本物の合言葉を使わずにテストモードを試すとき：`npx wrangler dev --var ADMIN_KEY:local-test` で起動して、合言葉に local-test を入れる
+- アプリ内ブラウザのパネルが隠れているとアニメーションが間引かれる（バグではない）。見た目の確認はアニメを止めてから撮る
 
 ## これまでの流れ（2026-10-29）
 ①Hello World公開 → ②画面＋判定 → ③D1で履歴/ランキング → ④Xシェア＋OGP → ⑤UI刷新 → ⑥AI審査（のちに廃止）→ ⑦13段階・全画面演出・バズ神キャラ → ⑧トレンド/通知廃止・ランキングボタン強化・テストモード・OGP画像。
-GitHubに buzz-sim リポジトリを作成済み（まだpushしていない）。
+GitHubに buzz-sim リポジトリを作成済み。
+
+## 2026-10-30
+⑨ 神の段階を追加（四次元と∬…の間）・地球から上のパラメーター限界突破表示・宇宙から上をバズマップで隠す・シークレットのパチンコ風カットイン・∬…で宇宙人に変身・BGMと効果音・バズ神をアニメPNG化・記号の文字化け・講評とリプライを各段階100個ずつ（src/lines/）。

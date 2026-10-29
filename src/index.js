@@ -1,4 +1,4 @@
-// ツイートバズシミュレーター（⑧ テストモード付き）
+// ツイートバズシミュレーター（⑨ 神の段階・カットイン・BGM 付き）
 // GET  /             → 画面（HTML）を返す
 // POST /api/buzz     → ツイートのパターンを読み取って採点し、講評・リプライと一緒に返してD1に保存
 // GET  /api/history  → 最新のバズ履歴
@@ -126,7 +126,7 @@ export function simulateBuzz(text, forceIndex) {
 
   const comment = pick(BASE_COMMENTS[level.name], rand) + " " + pick(THEME_COMMENTS[level.tone][pattern], rand);
   const pool = [...LEVEL_REPLIES[level.name]].sort(() => rand() - 0.5).slice(0, 2);
-  const replies = [THEME_REPLIES[level.tone][pattern], ...pool]
+  const replies = [pick(THEME_REPLIES[level.tone][pattern], rand), ...pool]
     .map(([name, handle, text]) => ({ name, handle, text }));
 
   const likes = Math.min(randomBetween(level.likes[0], level.likes[1]), 9e15);
