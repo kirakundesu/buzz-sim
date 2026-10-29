@@ -196,7 +196,7 @@ export const HTML = String.raw`<!doctype html>
   @keyframes float { 50% { transform: translateY(-12px); } }
 
   /* 上昇（村→町→…と駆け上がる）*/
-  .climb { position: absolute; inset: 0; display: grid; place-items: center; transition: background .25s; }
+  .climb { position: absolute; inset: 0; display: grid; place-items: center; transition: background .25s, filter .8s; }
   .climb .big { font-size: min(34vw, 260px); line-height: 1; animation: zoomout .32s ease-out; }
   .climb .nm { position: absolute; bottom: 14vh; font-size: clamp(22px, 5vw, 44px); font-weight: 800; }
   @keyframes zoomout { from { transform: scale(2.4); opacity: 0; } }
@@ -206,6 +206,25 @@ export const HTML = String.raw`<!doctype html>
   @keyframes stripes { to { background-position: 85px 0; } }
   @keyframes warnglow { to { text-shadow: 0 0 44px #e879f9, 0 0 10px #f5d0fe; letter-spacing: .04em; } }
   @keyframes blink { 50% { opacity: .2; } }
+  /* エンドコンテンツの道のり（地図の外の特別枠。シークレットゾーンもカットインも通らず、字幕で静かに語る）
+     明るさはどれも1秒くらいかけて変える（光過敏への配慮） */
+  .er-bg { position: absolute; inset: 0; background: #000; }
+  .narr { position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; z-index: 8; padding: 0 16px; text-align: center; white-space: pre-line;
+    color: #f4f4f5; font-size: clamp(20px, 5.4vw, 40px); font-weight: 700; line-height: 1.6; letter-spacing: .12em; text-shadow: 0 2px 14px #000;
+    animation: fadein 1s ease both; pointer-events: none; }
+  .narr.low { top: 76%; }
+  .climb.dim { filter: brightness(.4); }
+  /* 無：色と形がゆっくり抜けていく */
+  .climb.drain { filter: grayscale(1) brightness(.25); transition: background 1.8s, filter 1.8s; }
+  .climb.drain .big, .climb.drain .nm { opacity: 0; transform: scale(.6); transition: opacity 1.6s ease .2s, transform 1.8s ease; }
+  /* 創世：世界が1点に吸い込まれ、そこから光が生まれる */
+  .climb.collapse { transform: scale(0); border-radius: 50%; transition: transform 1s cubic-bezier(.55,0,.9,.4), border-radius .6s; }
+  .er-spark { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; translate: -50% -50%; border-radius: 50%;
+    background: radial-gradient(circle, #fff, #fde68a 35%, rgba(253,230,138,0) 70%); animation: erspark 2s ease-in forwards; }
+  @keyframes erspark { 70% { opacity: 1; } to { width: 70vmax; height: 70vmax; opacity: .5; } }
+  /* 真・家庭内：来た道を、上から降りてくる */
+  .climb.down .big { animation: falldown .4s ease-out; }
+  @keyframes falldown { from { transform: translateY(-40vh); opacity: 0; } }
 
   /* ── 各段階のシーン ── */
   .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; }
@@ -480,17 +499,6 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t5 .ci-stamp { color: #fffbeb; border-color: #fde047; font-size: clamp(36px, 10vw, 110px); }
   .cutin.t6 .ci-stamp { background: #000; border-color: #22c55e; color: #4ade80; font-family: monospace; }
   /* エンドコンテンツのカットイン：無は白と灰で静かに（集中線も止める）、創世は夜明け、真・家庭内は夕焼け */
-  .cutin.t7 { --c1: #d4d4d8; --c2: #f4f4f5; --c3: #fff; background: #e4e4e7; animation: none; }
-  .cutin.t7 .ci-lines { display: none; }
-  .cutin.t7 .ci-band { background: linear-gradient(100deg, #e4e4e7, #fafafa 55%, #e4e4e7); border-color: #a1a1aa; box-shadow: none; }
-  .cutin.t7 .ci-name { color: #18181b; -webkit-text-stroke: 0; text-shadow: none; }
-  .cutin.t7 .ci-label { color: #71717a; text-shadow: none; }
-  .cutin.t7 .ci-stamp { background: #fafafa; color: #3f3f46; border-color: #a1a1aa; box-shadow: none; text-shadow: none; }
-  .cutin.t7 .ci-god { opacity: .25; filter: grayscale(1); }
-  .cutin.t8 { --c1: #0b1026; --c2: #38bdf8; --c3: #fde68a; }
-  .cutin.t8 .ci-band { background: linear-gradient(100deg, #1e3a8a, #38bdf8 40%, #fde68a 70%, #fff7ed); }
-  .cutin.t9 { --c1: #7c2d12; --c2: #fb923c; --c3: #fff7ed; }
-  .cutin.t9 .ci-band { background: linear-gradient(100deg, #7c2d12, #ea580c 45%, #fdba74 75%, #fff7ed); }
   .ci-new { position: absolute; left: 0; right: 0; top: 11%; margin: auto; width: fit-content; z-index: 4; rotate: -4deg; background: #facc15; color: #b91c1c;
     font-weight: 800; font-size: clamp(20px, 4.6vw, 42px); padding: 4px 20px; border-radius: 999px; border: 4px solid #fff; white-space: nowrap; box-shadow: 0 0 30px #facc15;
     animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, wobble .35s calc(1.1s * var(--k)) ease-in-out 4 alternate; }
@@ -1758,10 +1766,8 @@ var SCENES = [
 var TIERS = [
   { cls: "t0", stamp: "チャンス!", color: "#3b82f6" }, { cls: "t1", stamp: "アツい!!", color: "#16a34a" }, { cls: "t2", stamp: "激アツ!!", color: "#dc2626" },
   { cls: "t3", stamp: "超激アツ!!!", color: "#eab308" }, { cls: "t4", stamp: "確定!?", color: "#db2777" }, { cls: "t5", stamp: "神確定", color: "#f59e0b" },
-  { cls: "t6", stamp: "∃RR0R", color: "#22c55e" },
-  // エンドコンテンツ：無（白と灰の静けさ）・創世（夜明けの色）・真・家庭内（夕焼けのあたたかさ）
-  { cls: "t7", stamp: "……", color: "#a1a1aa" }, { cls: "t8", stamp: "創世", color: "#38bdf8" }, { cls: "t9", stamp: "おかえり", color: "#fb923c" }
-];
+  { cls: "t6", stamp: "∃RR0R", color: "#22c55e" }
+];   // エンドコンテンツはカットインを使わない（endRoute の道のりで見せる）
 // 上昇の段取り。シークレットは「前に届いたことがある段」と「今回の到達段」だけ見せる（まだ見ていない段のネタバレを防ぐ）
 // 通過するシークレットはだんだん速く、最後の1段の前で「溜め」て、最後はスローで大きく見せる
 var TAME_MS = 1100;
@@ -1784,33 +1790,32 @@ function cutIn(stage, p, isNew) {
   c.style.setProperty("--d", p.ms + "ms"); c.style.setProperty("--k", p.k);
   c.innerHTML = '<div class="ci-lines"></div><div class="ci-band"><img class="ci-god" alt=""><div class="ci-txt"><div class="ci-label"></div><div class="ci-name"></div></div></div>' +
     '<div class="ci-stamp"></div>' + (p.final ? '<div class="ci-ring"></div>' : "") + '<div class="ci-flash"></div>';
-  c.querySelector(".ci-god").src = "/gods/" + (END_LOOK[i] ? END_LOOK[i].god : i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
-  c.querySelector(".ci-label").textContent = i <= 9 ? "SECRET " + (i - 6) : LV[i].e ? "？？？" : "ULTRA SECRET";
+  c.querySelector(".ci-god").src = "/gods/" + (i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
+  c.querySelector(".ci-label").textContent = i <= 9 ? "SECRET " + (i - 6) : "ULTRA SECRET";
   var nm = c.querySelector(".ci-name"); nm.style.setProperty("--n", Array.from(LV[i].name).length); obf(nm, LV[i].name);
   obf(c.querySelector(".ci-stamp"), TIERS[tier].stamp);
   if (isNew) { var nb = document.createElement("div"); nb.className = "ci-new"; nb.textContent = "NEW!! 初到達"; c.append(nb); }
   stage.append(c);
-  // エンドコンテンツの音：無は静かに、創世は合唱、真・家庭内は鐘
-  Sound.sfx("cutin", i === VOID ? { tier: 0, k: p.k, quiet: true } : { tier: i === GENESIS ? 5 : i === TRUEHOME ? 4 : tier, k: p.k });
+  Sound.sfx("cutin", { tier: tier, k: p.k });
   return c;
 }
 
 var skipped = false;
 async function wait(ms) { var t = 0; while (t < ms && !skipped) { await sleep(50); t += 50; } }
 
-// seen：今回の投稿より前に届いたことのあるシークレットの番号
-async function playCinema(d, seen) {
-  var cinema = $("cinema"), stage = $("stage"), idx = d.levelIndex;
-  skipped = false;
-  cinema.classList.add("show");
-  document.body.style.overflow = "hidden";
-  Sound.mood("climb");
+// 上昇の1段（背景・大きな絵文字・名前・バズマップ・音）
+function climbTo(climb, i, emoji, name) {
+  climb.style.background = CLIMB_BG[i];
+  climb.innerHTML = '<div class="big">' + (emoji || LV[i].emoji) + '</div><div class="nm"></div>';
+  obf(climb.querySelector(".nm"), name || LV[i].name);
+  if (i < MAIN) renderMap(i);
+  Sound.sfx("blip", i);
+}
+function likedBy(i) { toast("❤️ " + pickOne(LIKERS[i]) + "さんがいいねしました"); }
 
-  // ① 上昇：家庭内から到達段階まで駆け上がる（シークレットはカットイン）
-  var hud = document.createElement("div"); hud.className = "hud";
-  hud.innerHTML = '<span>🔁 <b id="hrt">0</b></span><span class="l">❤️ <b id="hlike">0</b></span>';
-  var climb = document.createElement("div"); climb.className = "climb";
-  stage.innerHTML = ""; stage.append(climb, hud);
+// ふつうの上昇：家庭内から到達段階まで駆け上がる（シークレットは SECRET ZONE に入って、1段ごとにカットイン）
+async function climbUp(d, seen, stage, climb) {
+  var idx = d.levelIndex;
   var plan = climbPlan(idx, seen), total = idx >= 7 ? 1300 + TAME_MS : 0;
   plan.forEach(function (p) { total += p.ms; });
   var big = d.likes >= 1e16;
@@ -1836,12 +1841,7 @@ async function playCinema(d, seen) {
       if (skipped) break;
       Sound.mood("secret");
     }
-    climb.style.background = CLIMB_BG[i];
-    climb.innerHTML = '<div class="big">' + LV[i].emoji + '</div><div class="nm"></div>';
-    obf(climb.querySelector(".nm"), LV[i].name);
-    renderMap(i);
-    toast("❤️ " + pickOne(LIKERS[i]) + "さんがいいねしました");
-    Sound.sfx("blip", i);
+    climbTo(climb, i); likedBy(i);
     if (i < 7) { await wait(p.ms); continue; }
     var ci = cutIn(stage, p, seen.indexOf(i) < 0);
     if (prev) setTimeout(prev.remove.bind(prev), 300);
@@ -1849,6 +1849,76 @@ async function playCinema(d, seen) {
     prev = ci;
     await wait(p.ms);
   }
+}
+
+// エンドコンテンツの道のり：地図の外の特別枠なので、SECRET ZONE もカットインも通らず、字幕で静かに語る
+//   無：上がりはじめてすぐ止まり、色も音も抜けていく（だれもいいねしない）
+//   創世：地球まで上がったあと、世界が1点に吸い込まれ、暗闇から光が生まれる
+//   真・家庭内：地球まで上がったあと、来た道を家まで降りてくる。最後に家族3人のいいね
+async function narrate(stage, text, ms, cls) {
+  var n = document.createElement("div"); n.className = "narr" + (cls ? " " + cls : ""); n.textContent = text; stage.append(n);
+  await wait(ms); n.remove();
+}
+async function endRoute(d, stage, climb) {
+  var idx = d.levelIndex, i, s;
+  var bg = document.createElement("div"); bg.className = "er-bg"; stage.insertBefore(bg, climb);
+  if (idx === VOID) {
+    var stall = [420, 420, 560];
+    for (i = 0; i < stall.length && !skipped; i++) { climbTo(climb, i); await wait(stall[i]); }
+    if (skipped) return;
+    climb.classList.add("drain"); Sound.mood("void");
+    await wait(1800); if (skipped) return;
+    await narrate(stage, "……", 1300); if (skipped) return;
+    await narrate(stage, "なにも、起きなかった。", 1700);
+    return;
+  }
+  var up = [400, 380, 370, 360, 350, 350, 520];   // 地球まで（1秒に3段より速くしない）
+  if (idx === GENESIS) {
+    var gnMs = 0; up.forEach(function (ms) { gnMs += ms; });
+    countUp($("hlike"), d.likes, gnMs + 4700, true);
+    countUp($("hrt"), d.retweets, gnMs + 4700, true);
+  }
+  // 真・家庭内は、世界のいいねは数えない（最後に家族の3つだけ）
+  for (i = 0; i <= EARTH && !skipped; i++) { climbTo(climb, i); if (idx === GENESIS) likedBy(i); await wait(up[i]); }
+  if (skipped) return;
+  if (idx === GENESIS) {
+    climb.classList.add("collapse"); Sound.mood("tame");
+    await wait(1100); if (skipped) return;
+    await narrate(stage, "すべてが、ひとつの点になった。", 1600); if (skipped) return;
+    var sp = document.createElement("div"); sp.className = "er-spark"; stage.append(sp);
+    Sound.mood("genesis"); likedBy(GENESIS);
+    await narrate(stage, "はじめに、バズがあった。", 2000, "low");   // 光と重ならないよう下に
+    return;
+  }
+  // 真・家庭内
+  climb.classList.add("dim"); Sound.mood("home");
+  await narrate(stage, "……でも、\nいちばん届いてほしかったのは", 2300); if (skipped) return;
+  climb.classList.remove("dim"); climb.classList.add("down");
+  var down = [340, 360, 400, 460, 540, 640];   // だんだんゆっくり、家に着く
+  for (s = 0; s < down.length && !skipped; s++) { climbTo(climb, EARTH - 1 - s); await wait(down[s]); }
+  if (skipped) return;
+  climbTo(climb, TRUEHOME, "🏡", "ただいま");
+  countUp($("hlike"), d.likes, 1300);
+  [1, 2, 0].forEach(function (k, j) {   // 母・父、最後に妹
+    setTimeout(function () { toast("❤️ " + LIKERS[TRUEHOME][k] + "がいいねしました"); }, j * 450);
+  });
+  await wait(2000);
+}
+
+// seen：今回の投稿より前に届いたことのあるシークレットの番号
+async function playCinema(d, seen) {
+  var cinema = $("cinema"), stage = $("stage"), idx = d.levelIndex;
+  skipped = false;
+  cinema.classList.add("show");
+  document.body.style.overflow = "hidden";
+  Sound.mood("climb");
+
+  // ① 上昇（いいね数とリツイート数は左上で数え上げる）
+  var hud = document.createElement("div"); hud.className = "hud";
+  hud.innerHTML = '<span>🔁 <b id="hrt">0</b></span><span class="l">❤️ <b id="hlike">0</b></span>';
+  var climb = document.createElement("div"); climb.className = "climb";
+  stage.innerHTML = ""; stage.append(climb, hud);
+  if (LV[idx].e) await endRoute(d, stage, climb); else await climbUp(d, seen, stage, climb);
 
   // ② 到達した段階のシーン
   var sc = SCENES[idx];
@@ -2053,12 +2123,14 @@ postBtn.addEventListener("click", async function () {
   var st = loadStats(); st.posts += 1;
   if (st.best == null || data.score > st.best) { st.best = data.score; saveBestPost(data); }
   saveStats(st);
+  var endMsg = null;   // エンドコンテンツは行き先を明かさないよう、演出が終わってから知らせる
   if (data.secret) {
     var u = loadUnlocked();
     if (u.indexOf(data.levelIndex) < 0) {
       u.push(data.levelIndex); saveUnlocked(u);
-      var unlockMsg = LV[data.levelIndex].e ? LV[data.levelIndex].t : "🔓 シークレット「" + data.level + "」を解放！";
-      setTimeout(function () { toast(unlockMsg); }, 400);
+      var unlockMsg = "🔓 シークレット「" + data.level + "」を解放！";
+      if (LV[data.levelIndex].e) endMsg = LV[data.levelIndex].t;
+      else setTimeout(function () { toast(unlockMsg); }, 400);
     }
     // 見えている最後のシークレット（銀河団）に初めて届いたら、霧の向こうをほのめかす
     if (data.levelIndex === 9 && seen.indexOf(9) < 0 && !seen.some(function (i) { return LV[i] && LV[i].h; })) setTimeout(function () { toast("🌫️ 霧の向こうに、まだ何かある気配がする……"); }, 2600);
@@ -2067,6 +2139,7 @@ postBtn.addEventListener("click", async function () {
 
   if (data.wave) setTimeout(function () { toast("🌊 バズの波に乗った！ いつもより遠くまで届きそうじゃ……"); }, 300);
   await playCinema(data, seen);
+  if (endMsg) setTimeout(function () { toast(endMsg); }, 300);
   if (data.likes >= 1e16) setTimeout(function () { toast("🤯 いいねが" + bigUnit(data.likes) + "を突破！"); }, 600);   // 超バズ
   renderMap(data.levelIndex);
   renderMyStats(); loadTop3();
