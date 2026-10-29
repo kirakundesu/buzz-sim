@@ -4,7 +4,7 @@ export const HTML = String.raw`<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ツイートバズシミュレーター</title>
 <meta name="description" content="バズ神があなたのツイートを採点。家庭内から地球まで、全14段階。霧の向こうには、まだ何かある……">
 <meta property="og:type" content="website">
@@ -27,7 +27,7 @@ export const HTML = String.raw`<!doctype html>
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
-    min-height: 100vh; color: var(--text); background: var(--bg);
+    min-height: 100vh; min-height: 100dvh; color: var(--text); background: var(--bg);
     font-family: "M PLUS Rounded 1c", system-ui, sans-serif;
     background-image: radial-gradient(circle at 15% 0%, #1b2440 0, transparent 45%),
                       radial-gradient(circle at 90% 40%, #2a1533 0, transparent 40%);
@@ -35,27 +35,29 @@ export const HTML = String.raw`<!doctype html>
   }
   button { font: inherit; color: inherit; }
 
-  /* ── レイアウト ──
-     スマホ（〜759px）：1列。バズマップは上の絵文字の列で代わりにし、右のパネル（ランキング・記録）は入力欄の下に出す
-     タブレット（760〜1099px）：入力欄を上に、その下にバズマップと右のパネルを2列で並べる
-     PC（1100px〜）：左にバズマップ、真ん中に入力欄、右にパネルの3列 */
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
+  /* ── レイアウト（スマホを先に書き、640px と 1024px の2段で広げる）──
+     スマホ（〜639px）：1列。バズマップは上の絵文字の列で代わりにし、右のパネル（ランキング・記録）は入力欄の下に出す
+     640px〜：入力欄を上に、その下にバズマップと右のパネルを2列で並べる
+     1024px〜：左にバズマップ、真ん中に入力欄、右にパネルの3列 */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 1240px; margin: 0 auto;
+    padding: 16px 16px calc(88px + env(safe-area-inset-bottom)); }
   .side { display: none; }
   .side:last-child { display: block; }
-  @media (min-width: 760px) and (max-width: 1099px) {
-    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: 900px; }
+  @media (min-width: 640px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; max-width: 900px; padding: 24px 24px 80px; }
     main { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: 680px; justify-self: center; }
     .side { display: block; }
     .mapstrip { display: none !important; }
   }
-  @media (min-width: 1100px) {
-    .layout { grid-template-columns: 280px minmax(0, 600px) 280px; justify-content: center; }
-    .side { display: block; position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: thin; }
+  @media (min-width: 1024px) {
+    .layout { grid-template-columns: clamp(230px, 24vw, 280px) minmax(0, 600px) clamp(230px, 24vw, 280px); gap: 16px; justify-content: center; max-width: 1240px; padding: 24px 16px 80px; }
+    main { grid-column: auto; grid-row: auto; max-width: none; }
+    .layout .hero h1 { font-size: clamp(26px, 3.3vw, 38px); }   /* 真ん中の列の幅に収まる大きさ（下の .hero h1 より強くするため .layout を付けている）*/
+    .side { position: sticky; top: 24px; align-self: start; max-height: calc(100dvh - 48px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #3b4252 transparent; }
     .side:last-child { padding-bottom: 56px; }   /* 右下の音量ボタンに隠れないように */
-    .mapstrip { display: none !important; }
   }
   .panel { background: rgba(18,20,28,.85); border: 1px solid var(--line); border-radius: 18px; padding: 16px; backdrop-filter: blur(6px); }
-  .panel h3 { margin: 0 0 12px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+  .panel h3 { margin: 0 0 12px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; }
   .panel h3 small { color: var(--sub); font-weight: 500; font-size: 12px; }
 
   /* 左：バズマップ */
@@ -83,7 +85,9 @@ export const HTML = String.raw`<!doctype html>
   .top3 .s { color: var(--sub); white-space: nowrap; }
   .top3 .empty { color: var(--sub); }
   .minitabs { display: flex; gap: 4px; }
-  .minitabs button { border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  /* スマホでは指で押しやすい高さ（36px）、640px からは小さく */
+  .minitabs button { border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 999px; min-height: 36px; padding: 0 14px; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  @media (min-width: 640px) { .minitabs button { min-height: 0; padding: 2px 9px; font-size: 11px; } }
   .minitabs button.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
   /* 自己ベストの投稿（「あなたの記録」パネルの中）*/
   .bestpost { margin-top: 10px; background: var(--panel2); border: 1px solid #a16207; border-radius: 12px; padding: 10px 12px; display: none; }
@@ -99,6 +103,7 @@ export const HTML = String.raw`<!doctype html>
   .mini-god { display: flex; gap: 10px; align-items: flex-end; }
   .mini-god .god { width: 86px; flex: none; }
   .tip { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px 12px 12px 2px; padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+  .tip.alien { background: #020a02; border-color: #22c55e; color: #bbf7d0; }   /* ∬… に届いたあと、宇宙人になったバズ神の吹き出し */
 
   /* 中央 */
   .topbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
@@ -110,7 +115,8 @@ export const HTML = String.raw`<!doctype html>
     -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 6s linear infinite; }
   .hero p { color: var(--sub); margin: 8px 0 0; }
   @keyframes shine { to { background-position: 300% 0; } }
-  .mapstrip { display: flex; justify-content: center; gap: 4px; margin-top: 12px; font-size: 18px; flex-wrap: wrap; }
+  /* スマホ用のバズマップ（14個が1行に収まる大きさ） */
+  .mapstrip { display: flex; justify-content: center; gap: 2px; margin-top: 12px; font-size: 17px; flex-wrap: wrap; }
   .mapstrip span { opacity: .9; }
 
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
@@ -129,7 +135,8 @@ export const HTML = String.raw`<!doctype html>
   .composer-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; }
   .count { color: var(--sub); font-size: 13px; }
   .count.warn { color: var(--pink); }
-  .btn { border: 0; border-radius: 999px; padding: 10px 22px; font-weight: 800; font-size: 15px; cursor: pointer; color: #fff; background: var(--blue);
+  /* ボタンは指で押しやすい高さ（44px 以上）*/
+  .btn { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 22px; font-weight: 800; font-size: 15px; cursor: pointer; color: #fff; background: var(--blue);
     transition: transform .15s, filter .15s; }
   .btn:hover { filter: brightness(1.1); } .btn:active { transform: scale(.96); }
   .btn:disabled { opacity: .45; cursor: default; }
@@ -144,7 +151,7 @@ export const HTML = String.raw`<!doctype html>
   .boardbtn small { color: #d6b75a; font-weight: 500; font-size: 12px; white-space: nowrap; }
 
   /* テストモード（合言葉を知っている人だけ）*/
-  .admin { position: fixed; left: 16px; bottom: 16px; z-index: 40; width: min(320px, calc(100vw - 32px)); background: #0f172a; border: 2px dashed #22c55e;
+  .admin { position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40; width: min(320px, calc(100vw - 32px)); background: #0f172a; border: 2px dashed #22c55e;
     border-radius: 16px; padding: 12px; font-size: 13px; display: none; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
   .admin.show { display: block; }
   .admin.fold #adminPanel, .admin.fold #adminLogin { display: none !important; }
@@ -153,9 +160,10 @@ export const HTML = String.raw`<!doctype html>
   .admin .grid button { border: 1px solid #334155; background: #1e293b; border-radius: 8px; padding: 6px 4px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .admin .grid button:hover { background: #334155; }
   .admin .grid button.sec { border-color: #7c3aed; }
-  .admin input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #334155; background: #020617; color: var(--text); font: inherit; margin-bottom: 8px; }
+  /* 入力欄の文字は16px以上（小さいと iPhone がピントを合わせたときに画面を拡大してしまう）*/
+  .admin input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #334155; background: #020617; color: var(--text); font: inherit; font-size: 16px; margin-bottom: 8px; }
   .admin .mini { background: none; border: 0; color: var(--sub); cursor: pointer; font-size: 12px; }
-  .testbadge { position: fixed; left: 50%; bottom: 12px; white-space: nowrap; transform: translateX(-50%); z-index: 80; background: #16a34a; color: #fff; font-weight: 800; padding: 4px 14px;
+  .testbadge { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom)); white-space: nowrap; transform: translateX(-50%); z-index: 80; background: #16a34a; color: #fff; font-weight: 800; padding: 4px 14px;
     border-radius: 999px; font-size: 12px; display: none; letter-spacing: .1em; }
   .testbadge.show { display: block; }
   .last { margin-top: 16px; display: none; }
@@ -171,9 +179,9 @@ export const HTML = String.raw`<!doctype html>
   .caption .sub { font-size: clamp(13px, min(2.4vw, 4.5vh), 22px); margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.8); animation: fadein .6s .7s both; }
   @keyframes popin { from { transform: scale(.3); opacity: 0; } }
   @keyframes fadein { from { opacity: 0; transform: translateY(10px); } }
-  .skip { position: absolute; right: 16px; top: 16px; z-index: 9; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3); border-radius: 999px;
+  .skip { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; min-height: 40px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3); border-radius: 999px;
     padding: 6px 14px; cursor: pointer; font-size: 13px; }
-  .hud { position: absolute; left: 16px; top: 16px; z-index: 9; display: flex; gap: 14px; font-weight: 800; font-size: clamp(14px, 2.4vw, 20px);
+  .hud { position: absolute; left: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; display: flex; gap: 14px; font-weight: 800; font-size: clamp(14px, 2.4vw, 20px);
     background: rgba(0,0,0,.45); border-radius: 14px; padding: 8px 14px; font-variant-numeric: tabular-nums; }
   .hud .l { color: var(--pink); }
 
@@ -191,7 +199,10 @@ export const HTML = String.raw`<!doctype html>
   .climb .nm { position: absolute; bottom: 14vh; font-size: clamp(22px, 5vw, 44px); font-weight: 800; }
   @keyframes zoomout { from { transform: scale(2.4); opacity: 0; } }
   .warning { position: absolute; inset: 0; display: grid; place-items: center; background: repeating-linear-gradient(45deg, #000 0 30px, #3b0764 30px 60px);
-    font-weight: 800; font-size: clamp(28px, 7vw, 64px); color: #f0abfc; text-shadow: 0 0 20px #c026d3; animation: blink .25s steps(2) 6; text-align: center; }
+    font-weight: 800; font-size: clamp(28px, 7vw, 64px); color: #f0abfc; text-shadow: 0 0 20px #c026d3; text-align: center;
+    animation: stripes 1.2s linear infinite, warnglow .45s ease-in-out infinite alternate; }   /* 点滅の代わりに、しま模様が流れて文字の光がふくらむ */
+  @keyframes stripes { to { background-position: 85px 0; } }
+  @keyframes warnglow { to { text-shadow: 0 0 44px #e879f9, 0 0 10px #f5d0fe; letter-spacing: .04em; } }
   @keyframes blink { 50% { opacity: .2; } }
 
   /* ── 各段階のシーン ── */
@@ -263,8 +274,9 @@ export const HTML = String.raw`<!doctype html>
   .s-nation .japan { left: 50%; top: 45%; font-size: min(40vw, 340px); transform: translate(-50%, -50%); }
   .s-nation .ripple { position: absolute; left: 55%; top: 42%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; border: 4px solid #fca5a5; animation: ripple 1.4s ease-out infinite; }
   @keyframes ripple { to { width: 80vmin; height: 80vmin; margin: -40vmin; opacity: 0; } }
-  .s-nation .flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash 2s .4s steps(1) 2; }
-  @keyframes flash { 0%, 6%, 12%, 40%, 46% { opacity: 0; } 3%, 9%, 43% { opacity: .8; } }
+  /* カメラのフラッシュ：1回だけ、やわらかく（光過敏の人のため、何度もちかちかさせない）*/
+  .s-nation .flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash 1s .4s ease-out 1; }
+  @keyframes flash { 0% { opacity: .45; } 100% { opacity: 0; } }
   .s-nation .sokuho { position: absolute; left: 0; right: 0; top: 10%; background: #dc2626; color: #fff; font-weight: 800; text-align: center; font-size: clamp(26px, 6vw, 60px); padding: 10px;
     animation: slam .5s cubic-bezier(.2,1.6,.4,1) both; letter-spacing: .3em; }
   @keyframes slam { from { transform: scaleX(0); } }
@@ -333,10 +345,25 @@ export const HTML = String.raw`<!doctype html>
   @keyframes rewind { to { transform: rotate(-360deg); } }
 
   /* ∬∃@▽◇◎＄￡※⊆〒^^ */
-  .s-glitch { background: #000; animation: gshake .15s infinite; }
-  @keyframes gshake { 25% { transform: translate(4px, -3px); } 50% { transform: translate(-5px, 2px); } 75% { transform: translate(2px, 4px); filter: invert(1); } }
-  @keyframes gshake2 { 25% { transform: translate(3px, -2px) skewX(2deg); } 50% { transform: translate(-4px, 1px); } 75% { transform: translate(1px, 3px) skewX(-3deg); } }
-  .s-glitch .alienimg { position: absolute; left: 50%; top: 56%; width: min(48vw, 300px); transform: translate(-50%, -50%); filter: drop-shadow(0 0 30px #22c55e); }
+  /* ∬…：点滅なしで「異常さ」を出す（光過敏の人のため、画面の明るさは急に変えない・1秒に3回以上ちかちかさせない）
+     ゆっくり迫るカメラ、宇宙人のまわりを回る記号の輪、流れる走査線と緑の帯、なめらかな色ずれ、ときどき横にずれる文字 */
+  .s-glitch { background: radial-gradient(circle at 50% 56%, #052e16 0, #000 62%); animation: gzoom 6s ease-out forwards; }
+  @keyframes gzoom { to { transform: scale(1.08); } }
+  .s-glitch::before { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.32) 0 2px, transparent 2px 4px); animation: scanline 4s linear infinite; }
+  @keyframes scanline { to { background-position: 0 40px; } }
+  .s-glitch::after { content: ""; position: absolute; left: 0; right: 0; top: -20%; height: 18%; z-index: 4; pointer-events: none;
+    background: linear-gradient(transparent, rgba(74,222,128,.1), transparent); animation: tracking 3.2s linear infinite; }
+  @keyframes tracking { to { top: 110%; } }
+  .gring { position: absolute; left: 50%; top: 56%; translate: -50% -50%; border-radius: 50%; border: 1px dashed rgba(74,222,128,.25); animation: spin linear infinite; }
+  .gring span { position: absolute; translate: -50% -50%; color: #4ade80; font-weight: 800; font-size: clamp(16px, 3.4vmin, 28px); text-shadow: 0 0 10px #22c55e; }
+  .s-glitch .alienimg { position: absolute; left: 50%; top: 56%; width: min(48vw, 300px); transform: translate(-50%, -50%);
+    animation: aberration 1.6s ease-in-out infinite alternate; }
+  @keyframes aberration {
+    from { filter: drop-shadow(-4px 0 rgba(255,0,255,.8)) drop-shadow(4px 0 rgba(0,255,255,.8)) drop-shadow(0 0 24px #22c55e); }
+    to { filter: drop-shadow(5px 0 rgba(255,0,255,.8)) drop-shadow(-5px 0 rgba(0,255,255,.8)) drop-shadow(0 0 44px #22c55e); } }
+  /* ガクッと揺れる（明るさは変えない。1.4秒に2回まで）*/
+  @keyframes gjolt { 0%, 38%, 46%, 68%, 74%, 100% { transform: none; } 40% { transform: translate(6px, -3px) skewX(3deg); } 70% { transform: translate(-5px, 2px) skewX(-2deg); } }
 
   /* 神：金色の天界、回る光、雲の上でひれ伏すバズ神 */
   .s-kami { background: radial-gradient(circle at 50% 38%, #fffbeb, #fde047 28%, #b45309 72%, #451a03); }
@@ -377,7 +404,7 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t3 { --c1: #422006; --c2: #eab308; --c3: #fef9c3; }
   .cutin.t4 { --c1: #1e1b4b; --c2: #db2777; --c3: #fff; }
   .cutin.t5 { --c1: #451a03; --c2: #f59e0b; --c3: #fffbeb; }
-  .cutin.t6 { --c1: #000; --c2: #14532d; --c3: #4ade80; animation: gshake2 .12s infinite; }
+  .cutin.t6 { --c1: #000; --c2: #14532d; --c3: #4ade80; animation: gjolt 1.4s steps(1) infinite; }
   .ci-lines { position: absolute; left: 50%; top: 50%; width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax; opacity: .7;
     background: repeating-conic-gradient(var(--c3) 0 1.6deg, transparent 1.6deg 7deg);
     -webkit-mask: radial-gradient(circle, transparent 4%, #000 20%); mask: radial-gradient(circle, transparent 4%, #000 20%); animation: cispin calc(1.1s * var(--k)) linear infinite; }
@@ -385,10 +412,10 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t4 .ci-lines, .cutin.t5 .ci-lines { background: repeating-conic-gradient(#f87171 0 2deg, transparent 2deg 5deg, #facc15 5deg 7deg, transparent 7deg 10deg,
     #4ade80 10deg 12deg, transparent 12deg 15deg, #60a5fa 15deg 17deg, transparent 17deg 20deg, #c084fc 20deg 22deg, transparent 22deg 25deg); }
   .cutin.t4 .ci-lines { animation: cispin 1.1s linear infinite, hue 1s linear infinite; }
-  .cutin.t6 .ci-lines { background: repeating-conic-gradient(#22c55e 0 1deg, transparent 1deg 4deg, #f0f 4deg 4.5deg, transparent 4.5deg 9deg); animation-duration: .5s; }
+  .cutin.t6 .ci-lines { background: repeating-conic-gradient(#22c55e 0 1deg, transparent 1deg 4deg, #f0f 4deg 4.5deg, transparent 4.5deg 9deg); animation-duration: 1.8s; }
   .ci-flash { position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none; animation: ciflash calc(.35s * var(--k)) ease-out forwards; }
   @keyframes ciflash { to { opacity: 0; } }
-  .ci-band { position: absolute; left: -12%; right: -12%; top: 50%; height: clamp(150px, 36vh, 320px); translate: 0 -50%;
+  .ci-band { position: absolute; left: -12%; right: -12%; top: 50%; height: clamp(150px, 30vh, 260px); translate: 0 -50%;
     background: linear-gradient(100deg, var(--c1), var(--c2) 55%, var(--c3)); border-top: 6px solid #fff; border-bottom: 6px solid #fff;
     box-shadow: 0 0 60px var(--c2); animation: ciband var(--d) cubic-bezier(.2,.9,.2,1) forwards; }
   @keyframes ciband { 0% { transform: skewY(-7deg) translateX(-120%); } 16% { transform: skewY(-7deg) translateX(0); }
@@ -398,17 +425,17 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t5 .ci-band { background: linear-gradient(100deg, #78350f, #f59e0b 40%, #fde047 62%, #fffbeb);
     border-image: linear-gradient(90deg, #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7) 1; }
   .cutin.t6 .ci-band { background: repeating-linear-gradient(0deg, #000 0 3px, #052e16 3px 6px); border-color: #22c55e; box-shadow: 0 0 40px #22c55e; }
-  .ci-god { position: absolute; left: 13%; bottom: -10%; height: 128%; transform: skewY(7deg); filter: drop-shadow(0 0 18px var(--c3));
+  .ci-god { position: absolute; left: 10%; bottom: 6%; height: 66%; transform: skewY(7deg); filter: drop-shadow(0 0 18px var(--c3));
     animation: cigod calc(.45s * var(--k)) calc(.12s * var(--k)) cubic-bezier(.2,1.4,.4,1) both; }
   @keyframes cigod { from { translate: -60% 0; scale: .6; opacity: 0; } }
-  .ci-txt { position: absolute; left: 36%; right: 12%; top: 50%; transform: translateY(-50%) skewY(7deg) skewX(-12deg); }
+  .ci-txt { position: absolute; left: 42%; right: 16%; top: 50%; transform: translateY(-50%) skewY(7deg) skewX(-12deg); }
   .ci-label { font-weight: 800; letter-spacing: .3em; font-size: clamp(14px, 2.6vw, 26px); color: var(--c3); text-shadow: 0 2px 0 #000, 0 0 12px #000; }
-  .ci-name { font-weight: 800; line-height: 1.1; white-space: nowrap; color: #fff; font-size: min(150px, 17vw, calc(58vw / var(--n, 3)));
+  .ci-name { font-weight: 800; line-height: 1.1; white-space: nowrap; color: #fff; font-size: min(16vw, calc(50vw / var(--n, 3)));
     -webkit-text-stroke: .07em #000; paint-order: stroke fill; text-shadow: 0 0 24px var(--c2), .06em .06em 0 var(--c1);
     animation: ciname calc(.45s * var(--k)) calc(.22s * var(--k)) cubic-bezier(.2,1.6,.4,1) both; }
   @keyframes ciname { from { translate: 40% 0; scale: 1.8; opacity: 0; } }
   .cutin.t6 .ci-name { color: #000; -webkit-text-stroke: .05em #4ade80; text-shadow: -.05em 0 #f0f, .05em 0 #0ff; }
-  .ci-stamp { position: absolute; right: 5%; bottom: 9%; z-index: 4; rotate: -10deg; font-weight: 800; font-size: clamp(30px, 8vw, 84px); color: #fff; white-space: nowrap;
+  .ci-stamp { position: absolute; right: 4%; bottom: 14%; z-index: 4; rotate: -10deg; font-weight: 800; font-size: clamp(30px, 8vw, 84px); color: #fff; white-space: nowrap;
     padding: .05em .4em; border: .1em solid #fff; border-radius: .25em; background: var(--c2); box-shadow: 0 0 40px var(--c2); text-shadow: 0 .05em 0 rgba(0,0,0,.45);
     animation: stamp calc(.3s * var(--k)) calc(.5s * var(--k)) cubic-bezier(.3,1.6,.5,1) both; }
   @keyframes stamp { from { scale: 3.5; opacity: 0; } }
@@ -417,23 +444,27 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t6 .ci-stamp { background: #000; border-color: #22c55e; color: #4ade80; font-family: monospace; }
   .ci-new { position: absolute; left: 0; right: 0; top: 11%; margin: auto; width: fit-content; z-index: 4; rotate: -4deg; background: #facc15; color: #b91c1c;
     font-weight: 800; font-size: clamp(20px, 4.6vw, 42px); padding: 4px 20px; border-radius: 999px; border: 4px solid #fff; white-space: nowrap; box-shadow: 0 0 30px #facc15;
-    animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, blink .3s calc(1.1s * var(--k)) steps(2) 3; }
+    animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, wobble .35s calc(1.1s * var(--k)) ease-in-out 4 alternate; }
+  @keyframes wobble { to { rotate: 4deg; scale: 1.08; } }
   @keyframes cishake { 10%, 50%, 90% { transform: translate(-9px, 5px); } 30%, 70% { transform: translate(9px, -6px); } }
-  /* 横向きのスマホなど、高さが低い画面：NEW の札が SECRET の文字に重ならないように上へ */
+  /* 640px〜：帯を太く、バズ神を大きく帯からはみ出させる */
+  @media (min-width: 640px) {
+    .ci-band { height: clamp(150px, 36vh, 320px); }
+    .ci-god { left: 13%; bottom: -10%; height: 128%; }
+    .ci-txt { left: 36%; right: 12%; }
+    .ci-name { font-size: min(150px, 17vw, calc(58vw / var(--n, 3))); }
+    .ci-stamp { right: 5%; bottom: 9%; }
+  }
+  /* 横向きのスマホなど、高さが低い画面：NEW の札が SECRET の文字に重ならないように上へ
+     （幅ではなく高さで決まる崩れなので、640px / 1024px とは別に高さで分けている）*/
   @media (max-height: 480px) {
     .ci-new { top: 3%; font-size: clamp(16px, 5vh, 26px); padding: 2px 14px; border-width: 3px; }
     .ci-stamp { font-size: clamp(26px, 11vh, 60px); bottom: 6%; }
   }
-  @media (max-width: 640px) {
-    .ci-band { height: clamp(150px, 30vh, 260px); }
-    .ci-god { left: 10%; height: 66%; bottom: 6%; }
-    .ci-txt { left: 42%; right: 16%; }
-    .ci-name { font-size: min(16vw, calc(50vw / var(--n, 3))); }
-    .ci-stamp { right: 4%; bottom: 14%; }
-  }
   .gtext { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); font-size: clamp(16px, min(6.2vw, 9vh), 90px); font-weight: 800; white-space: nowrap;
-    text-shadow: -4px 0 #f0f, 4px 0 #0ff; animation: gt .3s steps(2) infinite; }
-  @keyframes gt { 50% { text-shadow: 4px 0 #f0f, -4px 0 #0ff; transform: translate(-49%, -51%) skewX(10deg); } }
+    text-shadow: -4px 0 #f0f, 4px 0 #0ff; animation: gt 1.2s ease-in-out infinite alternate, gslip 2.2s steps(1) infinite; }
+  @keyframes gt { to { text-shadow: 5px 0 #f0f, -5px 0 #0ff; } }
+  @keyframes gslip { 0%, 84%, 92%, 100% { transform: translate(-50%, -50%); } 86% { transform: translate(-46%, -50%) skewX(-12deg); } 89% { transform: translate(-53%, -51%) skewX(8deg); } }
   .sym { position: absolute; top: -10%; color: #0f0; font-weight: 800; animation: rain linear infinite; font-size: 22px; }
   @keyframes rain { to { transform: translateY(120vh); } }
   .eye { left: 50%; top: 54%; transform: translate(-50%, -50%); font-size: min(20vw, 160px); animation: blink2 1s infinite; }
@@ -443,15 +474,24 @@ export const HTML = String.raw`<!doctype html>
 
   /* ── 結果画面（スクロールなしで講評が見える）── */
   #result { background: rgba(5,6,10,.94); backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden; }
-  .res { min-height: 100%; max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; display: grid; gap: 20px; align-content: center;
-    grid-template-columns: 1fr; }
-  @media (min-width: 860px) { .res { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; } }
-  /* 横向きのスマホ：バズ神と講評を左、点数とリプライを右に並べて、縦にスクロールしすぎないように */
-  @media (min-width: 600px) and (max-width: 859px) and (max-height: 520px) {
+  /* 上に貼りつく ✕（スクロールしても、いつでも閉じられる）。高さ0の帯の中に置いて、中身を押し下げない */
+  .resbar { position: sticky; top: 0; z-index: 3; height: 0; display: flex; justify-content: flex-end; }
+  .resx { margin: calc(10px + env(safe-area-inset-top)) 10px 0 0; width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid #3b4252;
+    background: rgba(18,20,28,.85); color: var(--text); font-size: 20px; cursor: pointer; backdrop-filter: blur(6px); }
+  .resx:hover { background: #1c2030; }
+  /* スマホは1列（バズ神と講評 → 点数とリプライ）。バズ神を小さめにして、段階と点数が早めに見えるように */
+  .res { min-height: 100%; max-width: 1100px; margin: 0 auto; padding: 16px 16px calc(88px + env(safe-area-inset-bottom)); display: grid; gap: 16px; align-content: center;
+    grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 640px) { .res { padding: 24px 24px 72px; gap: 20px; } }
+  @media (min-width: 1024px) { .res { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; } }
+  /* 横向きのスマホ：バズ神と講評を左、点数とリプライを右に並べて、縦にスクロールしすぎないように
+     （幅ではなく高さで決まるので、640px / 1024px とは別に高さで分けている）*/
+  @media (min-width: 640px) and (max-width: 1023px) and (max-height: 520px) {
     .res { grid-template-columns: minmax(0, .9fr) minmax(0, 1fr); align-items: start; }
   }
   .godbox { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .godbox .god { width: min(280px, 54vw, 42vh); animation: float 2.4s ease-in-out infinite; }
+  .godbox .god { width: min(170px, 44vw, 26dvh); animation: float 2.4s ease-in-out infinite; }
+  @media (min-width: 640px) { .godbox .god { width: min(280px, 54vw, 42vh); } }
   .speech { position: relative; width: 100%; border-radius: 20px; padding: 18px 20px; font-size: clamp(16px, 2vw, 19px); line-height: 1.7; min-height: 120px;
     border: 2px solid; animation: popin .5s cubic-bezier(.2,1.4,.4,1) both; }
   .speech::before { content: ""; position: absolute; top: -14px; left: 50%; margin-left: -12px; border: 12px solid transparent; border-top: 0; border-bottom: 14px solid; border-bottom-color: inherit; }
@@ -489,21 +529,36 @@ export const HTML = String.raw`<!doctype html>
   .reply.show { opacity: 1; transform: none; }
   .reply .avatar { width: 32px; height: 32px; font-size: 14px; }
   .nm { font-weight: 800; } .hd { color: var(--sub); font-size: 12px; margin-left: 4px; }
-  .resbtns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  /* スマホ：シェアともう一回を半分ずつ、閉じるは下の段いっぱい。640px〜：中身の幅で横に並べる */
+  .resbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .resbtns .btn { min-height: 48px; padding: 10px 12px; }
+  .resbtns #closeRes { grid-column: 1 / -1; }
+  @media (min-width: 640px) {
+    .resbtns { display: flex; justify-content: center; flex-wrap: wrap; }
+    .resbtns .btn { min-height: 44px; padding: 10px 22px; }
+  }
 
   /* バズ神（アニメPNG）。∬… では宇宙人に変身する */
   .god { display: block; height: auto; user-select: none; -webkit-user-drag: none; }
-  .god.morph { animation: morph .1s steps(2) infinite !important; }
-  @keyframes morph { 0% { transform: translate(-7px, 2px) skewX(12deg); filter: drop-shadow(-6px 0 #f0f) drop-shadow(6px 0 #0ff); }
-    50% { transform: translate(7px, -3px) skewX(-16deg) scaleY(1.12); filter: invert(1) drop-shadow(5px 0 #0f0); } }
-  .morphflash { position: fixed; inset: 0; z-index: 56; background: #fff; pointer-events: none; animation: ciflash .6s ease-out forwards; }
+  /* 変身：ぐにゃっと歪んで色が緑へ溶けていき、宇宙人がにじみ出る。白い全画面の光の代わりに、緑の輪が広がる（点滅させない）*/
+  .god.morph { animation: morph .75s ease-in forwards !important; }
+  @keyframes morph {
+    30% { transform: skewX(8deg) scaleY(1.05); filter: hue-rotate(60deg) drop-shadow(-4px 0 #f0f) drop-shadow(4px 0 #0ff); }
+    65% { transform: skewX(-12deg) scaleX(.9) scaleY(1.12); filter: hue-rotate(120deg) blur(1px) drop-shadow(5px 0 #f0f) drop-shadow(-5px 0 #0ff); }
+    100% { transform: scale(.7) skewX(18deg); filter: hue-rotate(160deg) blur(6px); opacity: 0; } }
+  .god.emerge { animation: emerge .7s ease-out both, float 2.4s ease-in-out .7s infinite !important; }
+  @keyframes emerge { from { transform: scale(.7); filter: blur(6px) drop-shadow(0 0 30px #22c55e); opacity: 0; } }
+  .morphring { position: fixed; z-index: 56; width: 0; height: 0; translate: -50% -50%; border-radius: 50%; border: 6px solid rgba(74,222,128,.7);
+    box-shadow: 0 0 30px #22c55e; pointer-events: none; animation: morphring .9s ease-out forwards; }
+  @keyframes morphring { to { width: 160vmax; height: 160vmax; opacity: 0; } }
 
   /* 地球から上のパラメーター表示 */
   .lb { display: inline-block; margin-left: 6px; vertical-align: middle; font-size: 11px; font-weight: 800; color: #fff; padding: 2px 8px; border-radius: 6px;
     background: linear-gradient(90deg, #ef4444, #f59e0b); letter-spacing: .05em; }
   .lb:empty { display: none; }
   .lb.max { background: #facc15; color: #422006; }
-  .lb.blink { animation: blink .4s steps(2) infinite; }
+  .lb.blink { animation: lbpulse .8s ease-in-out infinite alternate; }   /* ちかちかさせず、ふくらむだけ */
+  @keyframes lbpulse { to { transform: scale(1.15); box-shadow: 0 0 12px #f59e0b; } }
   .pts.over b { background: linear-gradient(90deg, #fde047, #f472b6, #60a5fa); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .axes b { position: relative; z-index: 1; text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: nowrap; }
   .axes.max .bar i { background: linear-gradient(90deg, #f59e0b, #fde68a); box-shadow: 0 0 10px #facc15; }
@@ -512,22 +567,30 @@ export const HTML = String.raw`<!doctype html>
   .axes.warp .bar i { animation: warpbar .4s steps(4) infinite; }
   @keyframes warpbar { 0% { width: 30%; } 25% { width: 150%; } 50% { width: 70%; } 75% { width: 190%; } }
   .axes.inf .bar i { background: linear-gradient(90deg, #fde047, #fff, #fde047); animation: hue 2s linear infinite; }
-  .card.glitchbox { animation: gshake2 .16s infinite; border-color: #22c55e; }
+  .card.glitchbox { animation: gjolt 1.8s steps(1) infinite; border-color: #22c55e; }
 
   /* 記号の文字化け（1文字ずつ幅を固定して、入れ替わっても形が崩れないようにする）*/
   .ob { display: inline-block; width: 1em; text-align: center; text-indent: 0; }
   .ob.n { width: .62em; }
 
-  /* 音のオン・オフと音量 */
-  .sound { position: fixed; right: 14px; bottom: 14px; z-index: 90; display: flex; align-items: center; gap: 4px; padding: 4px 14px 4px 4px; border-radius: 999px;
-    border: 1px solid #3b4252; background: rgba(18,20,28,.92); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
-  .mute { width: 38px; height: 38px; border-radius: 50%; border: 0; background: transparent; font-size: 20px; cursor: pointer; display: grid; place-items: center; }
+  /* 音のオン・オフと音量
+     スマホ：丸いボタンだけ。押すと横に音量スライダーが開き（.open）、開いている間にもう一度押すと消音
+     640px〜：ボタン（消音）とスライダーをいつも並べる */
+  .sound { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 90; display: flex; align-items: center; gap: 4px; padding: 3px;
+    border-radius: 999px; border: 1px solid #3b4252; background: rgba(18,20,28,.92); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+  .sound.open { padding-right: 16px; }
+  .mute { width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; font-size: 20px; cursor: pointer; display: grid; place-items: center; }
   .mute:hover { background: #1c2030; }
-  .sound input { width: 96px; accent-color: #1d9bf0; cursor: pointer; }
+  .sound input { display: none; width: 130px; accent-color: #1d9bf0; cursor: pointer; }
+  .sound.open input { display: block; }
+  @media (min-width: 640px) {
+    .sound { right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); padding: 4px 14px 4px 4px; }
+    .mute { width: 38px; height: 38px; }
+    .sound input { display: block; width: 96px; }
+  }
   /* 全画面の演出中とランキングを開いている間は、ボタンだけにしてじゃましない */
-  body:has(#cinema.show) .sound, body:has(#boardModal.show) .sound { padding: 4px; }
-  body:has(#cinema.show) .sound input, body:has(#boardModal.show) .sound input { display: none; }
-  @media (max-width: 600px) { .sound input { width: 64px; } }
+  body:has(#cinema.show) .sound:not(.open), body:has(#boardModal.show) .sound:not(.open) { padding: 4px; }
+  body:has(#cinema.show) .sound:not(.open) input, body:has(#boardModal.show) .sound:not(.open) input { display: none; }
 
   /* 紙吹雪 */
   .confetti { position: fixed; top: -12px; width: 8px; height: 14px; z-index: 60; pointer-events: none; animation: fall linear forwards; }
@@ -536,27 +599,29 @@ export const HTML = String.raw`<!doctype html>
   /* ランキングのモーダル */
   #boardModal { background: rgba(0,0,0,.6); display: none; place-items: center; padding: 16px; }
   #boardModal.show { display: grid; }
-  .modal { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
+  .modal { width: min(560px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
     animation: popin .3s ease both; overflow: hidden; }
-  .modal header { display: flex; align-items: center; gap: 8px; padding: 14px; border-bottom: 1px solid var(--line); }
-  .tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 12px; cursor: pointer; color: var(--sub); font-weight: 800; border: 1px solid var(--line); background: transparent; white-space: nowrap; }
-  @media (max-width: 480px) {
-    .tab { font-size: 13px; } .modal header { gap: 6px; padding: 12px 10px; }
-    /* せまい画面では、点数といいね数を2行目に回して、投稿文を読めるようにする */
-    .board li { flex-wrap: wrap; row-gap: 2px; }
-    .board .txt { flex-basis: calc(100% - 40px); }
-    .board .meta { flex-basis: 100%; padding-left: 40px; }
-  }
+  .modal header { display: flex; align-items: center; gap: 6px; padding: 12px 10px; border-bottom: 1px solid var(--line); }
+  .tab { flex: 1; min-height: 44px; text-align: center; padding: 6px 4px; border-radius: 12px; cursor: pointer; color: var(--sub); font-weight: 800; font-size: 13px;
+    border: 1px solid var(--line); background: transparent; white-space: nowrap; }
   .tab.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
-  .close { background: none; border: 0; font-size: 22px; cursor: pointer; padding: 4px 8px; color: var(--sub); }
+  .close { flex: none; width: 44px; height: 44px; background: none; border: 0; font-size: 22px; cursor: pointer; color: var(--sub); }
   .board { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
-  .board li { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); animation: fadein .4s ease backwards; }
+  /* スマホ：投稿文を1行目、点数といいね数を2行目に。640px〜：1行に並べる */
+  .board li { display: flex; flex-wrap: wrap; row-gap: 2px; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); animation: fadein .4s ease backwards; }
   .board .rank { width: 28px; text-align: center; font-weight: 800; color: var(--sub); flex: none; }
-  .board .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .board .meta { color: var(--sub); font-size: 13px; white-space: nowrap; }
+  .board .txt { flex: 1 1 calc(100% - 40px); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board .meta { flex-basis: 100%; padding-left: 40px; color: var(--sub); font-size: 13px; white-space: nowrap; }
+  @media (min-width: 640px) {
+    .modal header { gap: 8px; padding: 14px; }
+    .tab { font-size: 15px; }
+    .board li { flex-wrap: nowrap; }
+    .board .txt { flex: 1; }
+    .board .meta { flex-basis: auto; padding-left: 0; }
+  }
   .board .empty { color: var(--sub); justify-content: center; }
 
-  .toasts { position: fixed; right: 16px; top: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 70; max-width: calc(100vw - 32px); pointer-events: none; }
+  .toasts { position: fixed; right: 16px; top: calc(16px + env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 8px; z-index: 70; max-width: calc(100vw - 32px); pointer-events: none; }
   .toast { background: rgba(18,20,28,.95); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14px; animation: toast 2.6s ease forwards; }
   @keyframes toast { 0% { transform: translateX(120%); } 12%, 85% { transform: none; opacity: 1; } 100% { opacity: 0; } }
 
@@ -565,7 +630,7 @@ export const HTML = String.raw`<!doctype html>
 </head>
 <body>
 <div class="toasts" id="toasts"></div>
-<div class="sound"><button class="mute" id="mute" aria-label="音を消す">🔊</button><input type="range" id="vol" min="0" max="100" step="1" aria-label="音量"></div>
+<div class="sound" id="soundBox"><button class="mute" id="mute" aria-label="音を消す">🔊</button><input type="range" id="vol" min="0" max="100" step="1" aria-label="音量"></div>
 
 <div class="layout">
   <!-- 左：バズマップ -->
@@ -626,6 +691,7 @@ export const HTML = String.raw`<!doctype html>
 
 <!-- 結果画面 -->
 <div class="overlay" id="result">
+  <div class="resbar"><button class="resx" id="resX" aria-label="結果を閉じる">✕</button></div>
   <div class="res">
     <div class="godbox">
       <div id="bigGod"></div>
@@ -1240,7 +1306,16 @@ function paintMute() {
   $("mute").setAttribute("aria-label", m ? "音を出す" : "音を消す");
   $("mute").title = m ? "音を出す" : "音を消す";
 }
-$("mute").addEventListener("click", function () { Sound.init(); Sound.toggle(); paintMute(); });
+// スマホ（639px まで）では、1回目に押すと音量スライダーが開き、開いている間に押すと消音。外を触ると閉じる
+var NARROW = window.matchMedia("(max-width: 639px)");
+$("mute").addEventListener("click", function () {
+  Sound.init();
+  if (NARROW.matches && !$("soundBox").classList.contains("open")) { $("soundBox").classList.add("open"); return; }
+  Sound.toggle(); paintMute();
+});
+document.addEventListener("pointerdown", function (e) {
+  if (!e.target.closest("#soundBox")) $("soundBox").classList.remove("open");
+});
 // 音量スライダー（動かすと、消音中でも音が戻る）
 $("vol").value = Sound.volume();
 $("vol").addEventListener("input", function () {
@@ -1436,8 +1511,19 @@ var SCENES = [
     for (var i = 0; i < 26; i++) h += '<span class="rise" style="left:' + rnd(0, 100) + '%;animation-duration:' + rnd(3, 6) + 's;animation-delay:-' + rnd(0, 6) + 's">✦</span>';
     return h; } },
   { cls: "s-glitch", sub: "∃∃∃ 観測 不能 ∃∃∃", html: function () {
-    var h = '<div class="gtext"></div><img class="alienimg" src="/gods/alien.png" alt="">';
     var syms = Array.from("∬∃@▽◇◎＄￡※⊆〒^");
+    // 宇宙人のまわりを、記号の輪が2つ逆向きに回る（記号は文字化けし続ける）
+    var h = "";
+    [[86, 16, 16], [58, 10, -11]].forEach(function (g) {
+      var size = "min(" + g[0] + "vmin," + Math.round(g[0] * 7) + "px)";
+      h += '<div class="gring" style="width:' + size + ';height:' + size + ';animation-duration:' + Math.abs(g[2]) + 's' + (g[2] < 0 ? ';animation-direction:reverse' : '') + '">';
+      for (var k = 0; k < g[1]; k++) {
+        var a = k / g[1] * Math.PI * 2, c = syms[k % syms.length];
+        h += '<span class="ob' + (c === "@" || c === "^" ? " n" : "") + '" style="left:' + (50 + Math.cos(a) * 50) + '%;top:' + (50 + Math.sin(a) * 50) + '%">' + c + '</span>';
+      }
+      h += "</div>";
+    });
+    h += '<div class="gtext"></div><img class="alienimg" src="/gods/alien.png" alt="">';
     for (var i = 0; i < 40; i++) {
       var ch = pickOne(syms);
       h += '<span class="sym ob' + (ch === "@" || ch === "^" ? " n" : "") + '" style="left:' + rnd(0, 100) + '%;animation-duration:' + rnd(1, 3) + 's;animation-delay:' + rnd(0, 2) + 's">' + ch + '</span>';
@@ -1632,8 +1718,11 @@ async function morphGod(g, pattern) {
   await sleep(1000); if (!g.isConnected) return;
   g.classList.add("morph"); Sound.sfx("morph");
   await sleep(750); if (!g.isConnected) return;
-  var fl = document.createElement("div"); fl.className = "morphflash"; document.body.append(fl); setTimeout(fl.remove.bind(fl), 700);
-  g.src = "/gods/alien.png"; g.classList.remove("morph");
+  // バズ神の真ん中から緑の輪が広がる（白い光で画面をちかちかさせない）
+  var r = g.getBoundingClientRect(), ring = document.createElement("div"); ring.className = "morphring";
+  ring.style.left = (r.left + r.width / 2) + "px"; ring.style.top = (r.top + r.height / 2) + "px";
+  document.body.append(ring); setTimeout(ring.remove.bind(ring), 1000);
+  g.src = "/gods/alien.png"; g.classList.remove("morph"); g.classList.add("emerge");
   obf($("who"), WHO_ALIEN + pattern);
 }
 
@@ -1679,6 +1768,7 @@ function closeResult() {
   renderLast();
 }
 $("closeRes").addEventListener("click", closeResult);
+$("resX").addEventListener("click", closeResult);
 
 // 閉じたあと、入力欄の下に前回の結果を小さく出す
 function renderLast() {
@@ -1733,6 +1823,7 @@ postBtn.addEventListener("click", async function () {
   await playCinema(data, seen);
   renderMap(data.levelIndex);
   renderMyStats(); loadTop3();
+  if (data.levelIndex === GLITCH) renderMiniGod();   // ∬… に届いたら、トップのバズ神も宇宙人に
   postBtn.disabled = false;
   await showResult(data);
 });
@@ -1865,9 +1956,21 @@ $("adminOut").addEventListener("click", function () {
 });
 
 // ── 右パネルのミニバズ神 ──
-$("miniGod").append(godImg("idle"));
-function nextTip() { $("tip").textContent = pickOne(TIPS); }
-nextTip(); setInterval(nextTip, 7000);
+// ∬… に届いたことがあるブラウザでは、トップのバズ神も宇宙人のまま。ヒントも宇宙人の言葉になる（記号は文字化けする）
+var ALIEN_TIPS = [
+  "オチ ヲ ツケル ト 点 ガ ∬∃ ノビル ノジャ", "「」 ヲ ツカウ ト ◎◎ ウケル ノジャ", "最後 ノ 一行 デ ⊆〒⊆ 裏切ル ノジャ",
+  "ハッシュタグ ハ 2コ マデ ＄＄ ソレ イジョウ ハ ノイズ", "ワシ ノ 目 ハ 7ツ。ドノ 目 デモ アナタ ヲ 見テ オル",
+  "∃∃∃ ワシ ハ モウ 元ニ 戻レン ∃∃∃ 気ニ スルナ", "右下 デ 音量 ヲ ▽◇ カエラレル ノジャ", "アナタ ハ 霧 ノ 向コウ ヲ ※※ 見タ。ワシ モ 見タ"
+];
+function isAlienGod() { return loadUnlocked().indexOf(GLITCH) >= 0; }
+function renderMiniGod() {
+  var alien = isAlienGod();
+  $("miniGod").innerHTML = ""; $("miniGod").append(godImg(alien ? "alien" : "idle"));
+  $("tip").classList.toggle("alien", alien);
+  nextTip();
+}
+function nextTip() { if (isAlienGod()) obf($("tip"), pickOne(ALIEN_TIPS)); else $("tip").textContent = pickOne(TIPS); }
+renderMiniGod(); setInterval(nextTip, 7000);
 
 renderMap(-1);
 renderMyStats();

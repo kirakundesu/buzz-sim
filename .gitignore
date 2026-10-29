@@ -165,3 +165,6 @@ dist
 .env*
 !.env.example
 .wrangler/
+
+# 画面幅の確認で撮った画像（scripts/responsive-check.mjs）
+responsive-shots/
