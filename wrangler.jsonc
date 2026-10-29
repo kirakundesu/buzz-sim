@@ -3,6 +3,7 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
+	"assets": { "directory": "./public" },
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "buzz-sim",
 	"main": "src/index.js",
@@ -10,7 +11,14 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "buzz-db",
+			"database_id": "df14d879-ed90-45c9-b040-5de91669715a"
+		}
+	]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
