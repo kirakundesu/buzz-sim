@@ -10,6 +10,7 @@
 //   本番：npx wrangler secret put ADMIN_KEY
 //   ローカル：プロジェクト直下の .dev.vars に ADMIN_KEY=合言葉 と書く
 
+import { DurableObject } from "cloudflare:workers";
 import { LEVELS, THEMES, BASE_COMMENTS, THEME_COMMENTS, LEVEL_REPLIES, THEME_REPLIES } from "./data.js";
 import { HTML } from "./page.js";
 
@@ -250,14 +251,37 @@ export function simulateBuzz(text, forceIndex, luck) {
   };
 }
 
-// ── 連投の制限（Cloudflare の Rate Limiting。設定は wrangler.jsonc の ratelimits）──
-// 同じ IP から 10秒に4回・1分に15回まで。超えたら 429 を返し、D1 にも保存しない。
+// ── 連投の制限 ──
+// 同じ IP から /api/buzz は10秒に4回・1分に15回、/api/admin/* は1分に15回まで。超えたら 429 を返し、D1 にも保存しない。
 // 手で投稿するなら演出を飛ばしても1回4秒くらいかかるので、ふつうの人は引っかからない
-async function tooFast(limiters, key) {
-  for (const [limiter, wait] of limiters) {
-    if (limiter && !(await limiter.limit({ key })).success) return wait;
+// 2段がまえ（設定は wrangler.jsonc の ratelimits と durable_objects）：
+//   ① Cloudflare の Rate Limiting：速くて安いが、場所ごとのおおよその数え方なので、一気に来ると半分くらい取りこぼす
+//   ② Gate（Durable Object）：IP ごとに1つの係が、通した時刻を順番に数える。正確
+const RULES = {
+  buzz:  { limiters: [["BURST_LIMIT", 10], ["MINUTE_LIMIT", 60]], gate: [[4, 10], [15, 60]] },   // gate は [回数, 秒]
+  admin: { limiters: [["MINUTE_LIMIT", 60]], gate: [[15, 60]] },
+};
+export class Gate extends DurableObject {
+  hits = [];   // 通した時刻（ミリ秒）。メモリに置くだけ（しばらく使われないと消えるが、それでよい）
+  check(rules) {
+    const now = Date.now();
+    this.hits = this.hits.filter((t) => now - t < 60_000);
+    for (const [limit, sec] of rules) {
+      if (this.hits.filter((t) => now - t < sec * 1000).length >= limit) return sec;
+    }
+    this.hits.push(now);
+    return 0;
   }
-  return 0;
+}
+// 待ってほしい秒数を返す（0 なら通してよい）
+async function tooFast(env, kind, ip) {
+  const rule = RULES[kind], key = kind + ":" + ip;
+  for (const [name, wait] of rule.limiters) {
+    if (env[name] && !(await env[name].limit({ key })).success) return wait;
+  }
+  if (!env.GATE) return 0;
+  // 係が呼べないとき（無料枠の上限など）は、ふつうの人を止めないように通す
+  try { return await env.GATE.get(env.GATE.idFromName(key)).check(rule.gate); } catch { return 0; }
 }
 function slowDown(wait) {
   return Response.json(
@@ -272,7 +296,7 @@ export default {
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
 
     if (url.pathname === "/api/buzz" && request.method === "POST") {
-      const wait = await tooFast([[env.BURST_LIMIT, 10], [env.MINUTE_LIMIT, 60]], "buzz:" + ip);
+      const wait = await tooFast(env, "buzz", ip);
       if (wait) return slowDown(wait);
       const body = await request.json().catch(() => ({}));
       const text = String(body.text ?? "").trim().slice(0, 140);
@@ -294,7 +318,7 @@ export default {
     // ── テストモード（合言葉を知っている人だけ）──
     if (url.pathname.startsWith("/api/admin/") && request.method === "POST") {
       // 合言葉の総当たりを防ぐため、合言葉を比べる前に数える（1分に15回まで）
-      const wait = await tooFast([[env.MINUTE_LIMIT, 60]], "admin:" + ip);
+      const wait = await tooFast(env, "admin", ip);
       if (wait) return slowDown(wait);
       const body = await request.json().catch(() => ({}));
       if (!env.ADMIN_KEY || body.key !== env.ADMIN_KEY) {

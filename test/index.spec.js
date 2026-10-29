@@ -1,7 +1,7 @@
 // npx vitest run で実行する
 import { SELF, env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { simulateBuzz, score, superLikes } from "../src/index.js";
+import worker, { simulateBuzz, score, superLikes } from "../src/index.js";
 import { LEVELS, BASE_COMMENTS, LEVEL_REPLIES, THEME_COMMENTS, THEME_REPLIES } from "../src/data.js";
 
 const OPENER = { roast: "は？", cold: "あー……", warm: "ほう……", good: "おお！", praise: "ちょっと待って" };
@@ -241,17 +241,27 @@ describe("連投の制限", () => {
 	it("同じ IP から速く連投すると 429 になり、保存もされない。ほかの IP は投稿できる", async () => {
 		await env.DB.exec("CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT)");
 		const before = await saved();
-		// 10秒の区切りをまたいでも、9回送ればどちらかの区切りで必ず4回を超える
+		// Gate は直近10秒をそのまま数えるので、区切りをまたいでもちょうど4回で止まる
 		const res = [];
 		for (let k = 0; k < 9; k++) res.push(await post("203.0.113.1"));
 		const ok = res.filter((r) => r.status === 200).length;
 		const blocked = res.filter((r) => r.status === 429);
-		expect(blocked.length).toBeGreaterThan(0);
-		expect(ok + blocked.length).toBe(9);
+		expect(ok).toBe(4);
+		expect(blocked).toHaveLength(5);
 		expect((await blocked[0].json()).error).toContain("速すぎる");
 		expect(blocked[0].headers.get("retry-after")).toBe("10");
 		expect((await saved()) - before).toBe(ok);
 		expect((await post("203.0.113.2")).status).toBe(200);
+	});
+
+	it("Rate Limiting が取りこぼしても、Gate がちょうど4回で止める", async () => {
+		const leaky = { ...env, BURST_LIMIT: undefined, MINUTE_LIMIT: undefined };   // 本番で数え漏らしたときと同じ
+		const codes = [];
+		for (let k = 0; k < 8; k++) {
+			const req = new Request("http://example.com/api/buzz", { method: "POST", headers: { "cf-connecting-ip": "203.0.113.9" }, body: JSON.stringify({ text: "" }) });
+			codes.push((await worker.fetch(req, leaky)).status);
+		}
+		expect(codes).toEqual([400, 400, 400, 400, 429, 429, 429, 429]);   // 中身が空でも数える（保存はしない）
 	});
 
 	it("合言葉の総当たりも 1分に15回で止まる", async () => {
@@ -262,8 +272,7 @@ describe("連投の制限", () => {
 			});
 			codes.push(res.status);
 		}
-		expect(codes).toContain(429);
-		expect(codes.filter((c) => c === 403).length).toBeLessThanOrEqual(30);
-		expect(codes.every((c) => c === 403 || c === 429)).toBe(true);
+		expect(codes.slice(0, 15).every((c) => c === 403)).toBe(true);
+		expect(codes.slice(15).every((c) => c === 429)).toBe(true);
 	});
 });

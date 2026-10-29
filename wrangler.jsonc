@@ -19,11 +19,16 @@
 			"database_id": "df14d879-ed90-45c9-b040-5de91669715a"
 		}
 	],
-	// 連投の制限（src/index.js の tooFast）。period は 10 か 60 秒だけ選べる
+	// 連投の制限（src/index.js の tooFast）。① おおよそで速いふるい（period は 10 か 60 秒だけ選べる）
 	"ratelimits": [
 		{ "name": "BURST_LIMIT", "namespace_id": "1001", "simple": { "limit": 4, "period": 10 } },
 		{ "name": "MINUTE_LIMIT", "namespace_id": "1002", "simple": { "limit": 15, "period": 60 } }
-	]
+	],
+	// ② 正確に数える係（src/index.js の Gate）。無料プランでは new_sqlite_classes で作る
+	"durable_objects": {
+		"bindings": [{ "name": "GATE", "class_name": "Gate" }]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Gate"] }]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

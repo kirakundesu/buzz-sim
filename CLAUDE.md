@@ -80,7 +80,10 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 ## API
 - `POST /api/buzz`：採点してD1に保存（`{ text, seen, posts }`。seen と posts は「バズの波」用）
 - 連投の制限（2026-10-30、1秒に234回のスクリプト連投を受けて）：同じIPから `/api/buzz` は10秒に4回・1分に15回、`/api/admin/*` は1分に15回まで（合言葉の総当たり対策で、比べる前に数える）
-  - Cloudflare の Rate Limiting（wrangler.jsonc の `ratelimits`、index.js の `tooFast`）。超えると429「投稿が速すぎるのじゃ！」で、D1 には保存しない。画面は今までのエラーと同じく通知で出す
+  - 2段がまえ（index.js の `tooFast` と `RULES`）：① Cloudflare の Rate Limiting（wrangler.jsonc の `ratelimits`）で安く弾く → ② Durable Object の `Gate` が IP ごとに直近の時刻を数えて正確に止める
+  - ①だけだと本番では半分くらい取りこぼした（場所ごとのおおよその数え方のため）。②の Gate が本命。Gate が呼べないとき（無料枠の上限など）は通す
+  - 超えると429「投稿が速すぎるのじゃ！」で、D1 には保存しない。中身が空の投稿も数える。画面は今までのエラーと同じく通知で出す
+  - 本番で試すときは中身が空の投稿（`{"text":""}`）を送る。400 が4回のあと 429 になれば効いている（D1 には何も入らない）
   - ローカルの dev サーバーでも効く。wrangler.jsonc を変えたら dev サーバーを起動し直す（自動では読み直さない）
 - `GET /api/ranking`：いいね数ランキング。`?by=score` でバズ力ランキング（段階が上のものから、同じ段階なら点数順）
 - `GET /api/history` `/api/ranking` `/api/stats` `/api/levels`
