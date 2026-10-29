@@ -35,9 +35,19 @@ export const HTML = String.raw`<!doctype html>
   }
   button { font: inherit; color: inherit; }
 
-  /* ── 3カラムレイアウト（広い画面では左右にパネル）── */
-  .layout { display: grid; grid-template-columns: 1fr; gap: 24px; max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
+  /* ── レイアウト ──
+     スマホ（〜759px）：1列。バズマップは上の絵文字の列で代わりにし、右のパネル（ランキング・記録）は入力欄の下に出す
+     タブレット（760〜1099px）：入力欄を上に、その下にバズマップと右のパネルを2列で並べる
+     PC（1100px〜）：左にバズマップ、真ん中に入力欄、右にパネルの3列 */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
   .side { display: none; }
+  .side:last-child { display: block; }
+  @media (min-width: 760px) and (max-width: 1099px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: 900px; }
+    main { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: 680px; justify-self: center; }
+    .side { display: block; }
+    .mapstrip { display: none !important; }
+  }
   @media (min-width: 1100px) {
     .layout { grid-template-columns: 280px minmax(0, 600px) 280px; justify-content: center; }
     .side { display: block; position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: thin; }
@@ -75,14 +85,12 @@ export const HTML = String.raw`<!doctype html>
   .minitabs { display: flex; gap: 4px; }
   .minitabs button { border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
   .minitabs button.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
-  /* 自己ベストの投稿（PCは右の記録パネル、スマホは入力欄の下）*/
+  /* 自己ベストの投稿（「あなたの記録」パネルの中）*/
   .bestpost { margin-top: 10px; background: var(--panel2); border: 1px solid #a16207; border-radius: 12px; padding: 10px 12px; display: none; }
   .bestpost.show { display: block; }
   .bestpost small { color: #fde68a; font-size: 11px; font-weight: 800; }
   .bestpost .bp-text { margin: 4px 0 6px; font-size: 14px; white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .bestpost .bp-meta { color: var(--sub); font-size: 12px; margin-bottom: 8px; }
-  .bestcard { margin-top: 16px; }
-  @media (min-width: 1100px) { .bestcard { display: none !important; } }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
   .stat small { display: block; color: var(--sub); font-size: 11px; }
@@ -159,8 +167,8 @@ export const HTML = String.raw`<!doctype html>
   #cinema { background: #000; }
   .scene { position: absolute; inset: 0; overflow: hidden; }
   .caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; z-index: 5; padding: 0 16px; }
-  .caption .lv { font-size: clamp(30px, 7vw, 72px); font-weight: 800; text-shadow: 0 4px 24px rgba(0,0,0,.7); animation: popin .6s .2s cubic-bezier(.2,1.6,.4,1) both; }
-  .caption .sub { font-size: clamp(14px, 2.4vw, 22px); margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.8); animation: fadein .6s .7s both; }
+  .caption .lv { font-size: clamp(24px, min(7vw, 10vh), 72px); font-weight: 800; text-shadow: 0 4px 24px rgba(0,0,0,.7); animation: popin .6s .2s cubic-bezier(.2,1.6,.4,1) both; }
+  .caption .sub { font-size: clamp(13px, min(2.4vw, 4.5vh), 22px); margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.8); animation: fadein .6s .7s both; }
   @keyframes popin { from { transform: scale(.3); opacity: 0; } }
   @keyframes fadein { from { opacity: 0; transform: translateY(10px); } }
   .skip { position: absolute; right: 16px; top: 16px; z-index: 9; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3); border-radius: 999px;
@@ -411,6 +419,11 @@ export const HTML = String.raw`<!doctype html>
     font-weight: 800; font-size: clamp(20px, 4.6vw, 42px); padding: 4px 20px; border-radius: 999px; border: 4px solid #fff; white-space: nowrap; box-shadow: 0 0 30px #facc15;
     animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, blink .3s calc(1.1s * var(--k)) steps(2) 3; }
   @keyframes cishake { 10%, 50%, 90% { transform: translate(-9px, 5px); } 30%, 70% { transform: translate(9px, -6px); } }
+  /* 横向きのスマホなど、高さが低い画面：NEW の札が SECRET の文字に重ならないように上へ */
+  @media (max-height: 480px) {
+    .ci-new { top: 3%; font-size: clamp(16px, 5vh, 26px); padding: 2px 14px; border-width: 3px; }
+    .ci-stamp { font-size: clamp(26px, 11vh, 60px); bottom: 6%; }
+  }
   @media (max-width: 640px) {
     .ci-band { height: clamp(150px, 30vh, 260px); }
     .ci-god { left: 10%; height: 66%; bottom: 6%; }
@@ -418,7 +431,7 @@ export const HTML = String.raw`<!doctype html>
     .ci-name { font-size: min(16vw, calc(50vw / var(--n, 3))); }
     .ci-stamp { right: 4%; bottom: 14%; }
   }
-  .gtext { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); font-size: clamp(30px, 8vw, 90px); font-weight: 800; white-space: nowrap;
+  .gtext { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); font-size: clamp(16px, min(6.2vw, 9vh), 90px); font-weight: 800; white-space: nowrap;
     text-shadow: -4px 0 #f0f, 4px 0 #0ff; animation: gt .3s steps(2) infinite; }
   @keyframes gt { 50% { text-shadow: 4px 0 #f0f, -4px 0 #0ff; transform: translate(-49%, -51%) skewX(10deg); } }
   .sym { position: absolute; top: -10%; color: #0f0; font-weight: 800; animation: rain linear infinite; font-size: 22px; }
@@ -433,8 +446,12 @@ export const HTML = String.raw`<!doctype html>
   .res { min-height: 100%; max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; display: grid; gap: 20px; align-content: center;
     grid-template-columns: 1fr; }
   @media (min-width: 860px) { .res { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; } }
+  /* 横向きのスマホ：バズ神と講評を左、点数とリプライを右に並べて、縦にスクロールしすぎないように */
+  @media (min-width: 600px) and (max-width: 859px) and (max-height: 520px) {
+    .res { grid-template-columns: minmax(0, .9fr) minmax(0, 1fr); align-items: start; }
+  }
   .godbox { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .godbox .god { width: min(280px, 54vw); animation: float 2.4s ease-in-out infinite; }
+  .godbox .god { width: min(280px, 54vw, 42vh); animation: float 2.4s ease-in-out infinite; }
   .speech { position: relative; width: 100%; border-radius: 20px; padding: 18px 20px; font-size: clamp(16px, 2vw, 19px); line-height: 1.7; min-height: 120px;
     border: 2px solid; animation: popin .5s cubic-bezier(.2,1.4,.4,1) both; }
   .speech::before { content: ""; position: absolute; top: -14px; left: 50%; margin-left: -12px; border: 12px solid transparent; border-top: 0; border-bottom: 14px solid; border-bottom-color: inherit; }
@@ -507,6 +524,9 @@ export const HTML = String.raw`<!doctype html>
   .mute { width: 38px; height: 38px; border-radius: 50%; border: 0; background: transparent; font-size: 20px; cursor: pointer; display: grid; place-items: center; }
   .mute:hover { background: #1c2030; }
   .sound input { width: 96px; accent-color: #1d9bf0; cursor: pointer; }
+  /* 全画面の演出中とランキングを開いている間は、ボタンだけにしてじゃましない */
+  body:has(#cinema.show) .sound, body:has(#boardModal.show) .sound { padding: 4px; }
+  body:has(#cinema.show) .sound input, body:has(#boardModal.show) .sound input { display: none; }
   @media (max-width: 600px) { .sound input { width: 64px; } }
 
   /* 紙吹雪 */
@@ -520,7 +540,13 @@ export const HTML = String.raw`<!doctype html>
     animation: popin .3s ease both; overflow: hidden; }
   .modal header { display: flex; align-items: center; gap: 8px; padding: 14px; border-bottom: 1px solid var(--line); }
   .tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 12px; cursor: pointer; color: var(--sub); font-weight: 800; border: 1px solid var(--line); background: transparent; white-space: nowrap; }
-  @media (max-width: 480px) { .tab { font-size: 13px; } .modal header { gap: 6px; padding: 12px 10px; } }
+  @media (max-width: 480px) {
+    .tab { font-size: 13px; } .modal header { gap: 6px; padding: 12px 10px; }
+    /* せまい画面では、点数といいね数を2行目に回して、投稿文を読めるようにする */
+    .board li { flex-wrap: wrap; row-gap: 2px; }
+    .board .txt { flex-basis: calc(100% - 40px); }
+    .board .meta { flex-basis: 100%; padding-left: 40px; }
+  }
   .tab.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
   .close { background: none; border: 0; font-size: 22px; cursor: pointer; padding: 4px 8px; color: var(--sub); }
   .board { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
@@ -570,7 +596,6 @@ export const HTML = String.raw`<!doctype html>
     <button class="boardbtn" id="openBoard">🏆 みんなのランキング・最新のバズを見る <small id="postsCount"></small></button>
     <p class="hint">家庭内 → 村 → 町 → 県 → 全国 → アジア → 地球 → ？？？</p>
     <div class="card last" id="last"></div>
-    <div class="bestpost bestcard" id="bestPostMobile"></div>
   </main>
 
   <!-- 右：トレンドと通知 -->
@@ -1259,17 +1284,15 @@ function loadBestPost() { try { return JSON.parse(localStorage.getItem("buzz_bes
 function saveBestPost(d) { try { localStorage.setItem("buzz_best_post", JSON.stringify(d)); } catch (e) {} }
 function renderBestPost() {
   var bp = loadBestPost();
-  ["bestPost", "bestPostMobile"].forEach(function (id) {
-    var el = $(id); el.innerHTML = ""; el.classList.toggle("show", !!bp);
-    if (!bp) return;
-    var h = document.createElement("small"); h.textContent = "🏅 自己ベストの投稿";
-    var t = document.createElement("div"); t.className = "bp-text"; t.textContent = bp.text;
-    var m = document.createElement("div"); m.className = "bp-meta";
-    m.append(obf(document.createElement("span"), bp.emoji + " " + bp.level + "レベル ・ "), scoreSpan(bp, "点"), " ・ ❤️ " + compactNum(bp.likes));
-    var b = document.createElement("button"); b.className = "btn sub wide"; b.textContent = "この結果をもう一度見る";
-    b.addEventListener("click", function () { Sound.init(); Sound.mood(Sound.forLevel(bp.levelIndex)); showResult(bp); });
-    el.append(h, t, m, b);
-  });
+  var el = $("bestPost"); el.innerHTML = ""; el.classList.toggle("show", !!bp);
+  if (!bp) return;
+  var h = document.createElement("small"); h.textContent = "🏅 自己ベストの投稿";
+  var t = document.createElement("div"); t.className = "bp-text"; t.textContent = bp.text;
+  var m = document.createElement("div"); m.className = "bp-meta";
+  m.append(obf(document.createElement("span"), bp.emoji + " " + bp.level + "レベル ・ "), scoreSpan(bp, "点"), " ・ ❤️ " + compactNum(bp.likes));
+  var b = document.createElement("button"); b.className = "btn sub wide"; b.textContent = "この結果をもう一度見る";
+  b.addEventListener("click", function () { Sound.init(); Sound.mood(Sound.forLevel(bp.levelIndex)); showResult(bp); });
+  el.append(h, t, m, b);
 }
 
 function renderMap(nowIndex) {
