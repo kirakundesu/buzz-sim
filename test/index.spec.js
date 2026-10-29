@@ -72,9 +72,23 @@ describe("採点", () => {
 		}
 		expect(waves).toBeGreaterThan(0);
 	});
-	it("全部見終わったら、バズの波は起きない", () => {
+	it("全部見終わっても、ときどき上の段階へ押し上げる（シークレットが出続ける）", () => {
 		const all = LEVELS.map((l, i) => i);
-		for (let k = 0; k < 40; k++) expect(simulateBuzz("二度寝したら昼だった", null, { seen: all, posts: 99 }).wave).toBe(false);
+		let secrets = 0;
+		for (let k = 0; k < 300; k++) {
+			const r = simulateBuzz("二度寝したら昼だった", null, { seen: all, posts: 99 });
+			if (r.secret) secrets++;
+		}
+		expect(secrets).toBeGreaterThan(20);   // 300回のうち、だいたい60回前後
+	});
+	it("バズの波の行き先は下から順番ではなく、ばらける", () => {
+		const normal = [0, 1, 2, 3, 4, 5, 6];   // ふつうの段階だけ見たことがある
+		const targets = new Set();
+		for (let k = 0; k < 300; k++) {
+			const r = simulateBuzz("二度寝したら昼だった", null, { seen: normal, posts: 30 });
+			if (r.wave) targets.add(r.levelIndex);
+		}
+		expect(targets.size).toBeGreaterThanOrEqual(5);   // 太陽系だけでなく、いろいろなシークレットに飛ぶ
 	});
 
 	it("テストモードで指定した段階になり、講評とリプライが付く", () => {

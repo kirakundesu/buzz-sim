@@ -1827,7 +1827,7 @@ postBtn.addEventListener("click", async function () {
     var u = loadUnlocked();
     if (u.indexOf(data.levelIndex) < 0) { u.push(data.levelIndex); saveUnlocked(u); setTimeout(function () { toast("🔓 シークレット「" + data.level + "」を解放！"); }, 400); }
     // 見えている最後のシークレット（銀河団）に初めて届いたら、霧の向こうをほのめかす
-    if (data.levelIndex === 9 && seen.indexOf(9) < 0) setTimeout(function () { toast("🌫️ 霧の向こうに、まだ何かある気配がする……"); }, 2600);
+    if (data.levelIndex === 9 && seen.indexOf(9) < 0 && !seen.some(function (i) { return LV[i] && LV[i].h; })) setTimeout(function () { toast("🌫️ 霧の向こうに、まだ何かある気配がする……"); }, 2600);
   }
   if (data.levelIndex > prevBest) saveBest(data.levelIndex);
 

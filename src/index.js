@@ -129,18 +129,28 @@ function randomBetween(min, max) {
 }
 
 // ── 「バズの波」──
-// まだ見ていない段階が上にあるうちは、ときどき投稿をそこまで押し上げる（投稿するほど起きやすく、遠くまで届く）
-// ふつうに投稿を続けると、20回ほどで14段階ぜんぶの演出が見られるくらいに調整してある
-// 全部見終わったら波は起きず、点数どおりの段階になる
-const WAVE = { chance: 0.65, perPost: 0.02, maxChance: 0.9, jump: 4, jumpEvery: 3 };
+// ときどき投稿を上の段階へ押し上げる。行き先は届く範囲の中からランダム（下から順番ではなく、飛び飛びに出る）
+// ・まだ見ていない段階が届く範囲にあるうちは、その中から選ぶ（投稿するほど起きやすい）
+//   → ふつうに投稿を続けると、20回ほど（中央値20回）で14段階ぜんぶの演出が見られる
+// ・全部見終わったあとも、after の確率で上の段階のどこかへ押し上げる（シークレットが4回に1回くらい出続ける）
+// ・届く範囲は「今の段階 + jump + 投稿回数 / jumpEvery」。中身のない投稿がいきなり頂上に行かないように
+// 数字を変えたら、例文のシミュレーションで回数と順番のばらけ方を確かめる
+const WAVE = { chance: 0.26, perPost: 0.011, maxChance: 0.75, jump: 8, jumpEvery: 2, after: 0.3 };
 export function waveTarget(index, luck) {
   if (!luck) return null;
   const seen = new Set(luck.seen);
   if (!seen.has(index)) return null;   // 今の段階がまだ見たことのない段階なら、波がなくても新しい
-  if (Math.random() >= Math.min(WAVE.maxChance, WAVE.chance + luck.posts * WAVE.perPost)) return null;
-  const maxJump = WAVE.jump + Math.floor(luck.posts / WAVE.jumpEvery);
-  for (let i = index + 1; i < LEVELS.length && i <= index + maxJump; i++) if (!seen.has(i)) return i;
-  return null;
+  const reach = Math.min(LEVELS.length - 1, index + WAVE.jump + Math.floor(luck.posts / WAVE.jumpEvery));
+  const above = [];
+  for (let i = index + 1; i <= reach; i++) above.push(i);
+  const unseen = above.filter((i) => !seen.has(i));
+  const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+  if (unseen.length) {
+    if (Math.random() >= Math.min(WAVE.maxChance, WAVE.chance + luck.posts * WAVE.perPost)) return null;
+    return pickOne(unseen);
+  }
+  if (!above.length || Math.random() >= WAVE.after) return null;
+  return pickOne(above);
 }
 // 4つの観点の比率はそのままで、合計だけ total に合わせる（各25点まで）
 function fitAxes(axes, total) {
