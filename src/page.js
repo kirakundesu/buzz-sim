@@ -59,6 +59,11 @@ export const HTML = String.raw`<!doctype html>
   .map li.now { background: linear-gradient(90deg, rgba(249,24,128,.45), transparent); color: #fff; transform: translateX(6px); }
   .map .divider { color: #a78bfa; font-size: 11px; letter-spacing: .2em; padding: 6px 10px 2px; }
   .map .divider::before { content: "▲ ここから上はシークレット ▲"; }
+  /* 霧：まだ届いていない「シークレットの中のシークレット」。名前も絵文字も見せず、あることだけ匂わせる */
+  .map .fogline { color: #64748b; font-size: 11px; letter-spacing: .2em; padding: 6px 10px 2px; }
+  .map .fogline::before { content: "▲ この先は霧で見えない ▲"; }
+  .map li.fog { color: #565071; filter: blur(.7px); background: linear-gradient(90deg, rgba(148,163,184,.1), transparent 80%); }
+  .map li.fog .me { filter: grayscale(1); opacity: .7; }
 
   /* 右：ランキングTOP3と記録 */
   .top3 { list-style: none; margin: 0 0 12px; padding: 0; }
@@ -330,8 +335,23 @@ export const HTML = String.raw`<!doctype html>
   @keyframes rise { to { transform: translateY(-110vh); opacity: 0; } }
 
   /* ── パチンコ風カットイン（シークレット段階に上がるたび）── */
-  .cutin { position: absolute; inset: 0; z-index: 8; overflow: hidden; --c1: #0b1d4d; --c2: #3b82f6; --c3: #bfdbfe; --d: 1600ms;
-    background: radial-gradient(circle, var(--c2), var(--c1) 70%); animation: cishake .45s .5s linear; }
+  /* --d はカットインの長さ、--k は中の動きの速さの倍率（通過は速く、最後はスロー）*/
+  .cutin { position: absolute; inset: 0; z-index: 8; overflow: hidden; --c1: #0b1d4d; --c2: #3b82f6; --c3: #bfdbfe; --d: 1600ms; --k: 1;
+    background: radial-gradient(circle, var(--c2), var(--c1) 70%); animation: cishake .45s calc(.5s * var(--k)) linear; }
+  .cutin.final { z-index: 10; animation: cishake .7s calc(.48s * var(--k)) linear, cizoom var(--d) cubic-bezier(.1,.8,.2,1) both; }
+  @keyframes cizoom { from { scale: 1.25; } }
+  .cutin.freeze { filter: grayscale(.7) brightness(.4); transition: filter .4s; }
+  .cutin.freeze, .cutin.freeze * { animation-play-state: paused !important; }
+  .ci-ring { position: absolute; left: 50%; top: 50%; z-index: 6; width: 0; height: 0; border: 10px solid #fff; border-radius: 50%; translate: -50% -50%; pointer-events: none;
+    box-shadow: 0 0 40px var(--c3); animation: ciring .8s calc(.48s * var(--k)) ease-out both; }
+  @keyframes ciring { from { width: 0; height: 0; opacity: 1; } to { width: 230vmax; height: 230vmax; opacity: 0; } }
+  /* 溜め：最後の1段の前に、暗くなって心臓の音 */
+  .tame { position: absolute; inset: 0; z-index: 9; display: grid; place-items: center; pointer-events: none;
+    background: radial-gradient(circle, rgba(0,0,0,.15), rgba(0,0,0,.92) 70%); animation: tamein .3s ease-out both; }
+  @keyframes tamein { from { opacity: 0; } }
+  .tame-txt { font-weight: 800; font-size: clamp(64px, 18vw, 200px); color: #fff; text-shadow: 0 0 30px var(--tc), 0 0 80px var(--tc);
+    animation: heartbeat .9s ease-out infinite; }
+  @keyframes heartbeat { 0%, 30%, 100% { transform: scale(1); } 7% { transform: scale(1.28); } 19% { transform: scale(1.14); } }
   .cutin.t1 { --c1: #052e16; --c2: #16a34a; --c3: #bbf7d0; }
   .cutin.t2 { --c1: #450a0a; --c2: #dc2626; --c3: #fecaca; }
   .cutin.t3 { --c1: #422006; --c2: #eab308; --c3: #fef9c3; }
@@ -340,13 +360,13 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t6 { --c1: #000; --c2: #14532d; --c3: #4ade80; animation: gshake2 .12s infinite; }
   .ci-lines { position: absolute; left: 50%; top: 50%; width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax; opacity: .7;
     background: repeating-conic-gradient(var(--c3) 0 1.6deg, transparent 1.6deg 7deg);
-    -webkit-mask: radial-gradient(circle, transparent 4%, #000 20%); mask: radial-gradient(circle, transparent 4%, #000 20%); animation: cispin 1.1s linear infinite; }
+    -webkit-mask: radial-gradient(circle, transparent 4%, #000 20%); mask: radial-gradient(circle, transparent 4%, #000 20%); animation: cispin calc(1.1s * var(--k)) linear infinite; }
   @keyframes cispin { to { transform: rotate(360deg); } }
   .cutin.t4 .ci-lines, .cutin.t5 .ci-lines { background: repeating-conic-gradient(#f87171 0 2deg, transparent 2deg 5deg, #facc15 5deg 7deg, transparent 7deg 10deg,
     #4ade80 10deg 12deg, transparent 12deg 15deg, #60a5fa 15deg 17deg, transparent 17deg 20deg, #c084fc 20deg 22deg, transparent 22deg 25deg); }
   .cutin.t4 .ci-lines { animation: cispin 1.1s linear infinite, hue 1s linear infinite; }
   .cutin.t6 .ci-lines { background: repeating-conic-gradient(#22c55e 0 1deg, transparent 1deg 4deg, #f0f 4deg 4.5deg, transparent 4.5deg 9deg); animation-duration: .5s; }
-  .ci-flash { position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none; animation: ciflash .35s ease-out forwards; }
+  .ci-flash { position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none; animation: ciflash calc(.35s * var(--k)) ease-out forwards; }
   @keyframes ciflash { to { opacity: 0; } }
   .ci-band { position: absolute; left: -12%; right: -12%; top: 50%; height: clamp(150px, 36vh, 320px); translate: 0 -50%;
     background: linear-gradient(100deg, var(--c1), var(--c2) 55%, var(--c3)); border-top: 6px solid #fff; border-bottom: 6px solid #fff;
@@ -359,25 +379,25 @@ export const HTML = String.raw`<!doctype html>
     border-image: linear-gradient(90deg, #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7) 1; }
   .cutin.t6 .ci-band { background: repeating-linear-gradient(0deg, #000 0 3px, #052e16 3px 6px); border-color: #22c55e; box-shadow: 0 0 40px #22c55e; }
   .ci-god { position: absolute; left: 13%; bottom: -10%; height: 128%; transform: skewY(7deg); filter: drop-shadow(0 0 18px var(--c3));
-    animation: cigod .45s .12s cubic-bezier(.2,1.4,.4,1) both; }
+    animation: cigod calc(.45s * var(--k)) calc(.12s * var(--k)) cubic-bezier(.2,1.4,.4,1) both; }
   @keyframes cigod { from { translate: -60% 0; scale: .6; opacity: 0; } }
   .ci-txt { position: absolute; left: 36%; right: 12%; top: 50%; transform: translateY(-50%) skewY(7deg) skewX(-12deg); }
   .ci-label { font-weight: 800; letter-spacing: .3em; font-size: clamp(14px, 2.6vw, 26px); color: var(--c3); text-shadow: 0 2px 0 #000, 0 0 12px #000; }
   .ci-name { font-weight: 800; line-height: 1.1; white-space: nowrap; color: #fff; font-size: min(150px, 17vw, calc(58vw / var(--n, 3)));
     -webkit-text-stroke: .07em #000; paint-order: stroke fill; text-shadow: 0 0 24px var(--c2), .06em .06em 0 var(--c1);
-    animation: ciname .45s .22s cubic-bezier(.2,1.6,.4,1) both; }
+    animation: ciname calc(.45s * var(--k)) calc(.22s * var(--k)) cubic-bezier(.2,1.6,.4,1) both; }
   @keyframes ciname { from { translate: 40% 0; scale: 1.8; opacity: 0; } }
   .cutin.t6 .ci-name { color: #000; -webkit-text-stroke: .05em #4ade80; text-shadow: -.05em 0 #f0f, .05em 0 #0ff; }
   .ci-stamp { position: absolute; right: 5%; bottom: 9%; z-index: 4; rotate: -10deg; font-weight: 800; font-size: clamp(30px, 8vw, 84px); color: #fff; white-space: nowrap;
     padding: .05em .4em; border: .1em solid #fff; border-radius: .25em; background: var(--c2); box-shadow: 0 0 40px var(--c2); text-shadow: 0 .05em 0 rgba(0,0,0,.45);
-    animation: stamp .3s .5s cubic-bezier(.3,1.6,.5,1) both; }
+    animation: stamp calc(.3s * var(--k)) calc(.5s * var(--k)) cubic-bezier(.3,1.6,.5,1) both; }
   @keyframes stamp { from { scale: 3.5; opacity: 0; } }
   .cutin.t4 .ci-stamp, .cutin.t5 .ci-stamp { background: linear-gradient(90deg, #ef4444, #facc15, #22c55e, #3b82f6, #a855f7); }
   .cutin.t5 .ci-stamp { color: #fffbeb; border-color: #fde047; font-size: clamp(36px, 10vw, 110px); }
   .cutin.t6 .ci-stamp { background: #000; border-color: #22c55e; color: #4ade80; font-family: monospace; }
   .ci-new { position: absolute; left: 0; right: 0; top: 11%; margin: auto; width: fit-content; z-index: 4; rotate: -4deg; background: #facc15; color: #b91c1c;
     font-weight: 800; font-size: clamp(20px, 4.6vw, 42px); padding: 4px 20px; border-radius: 999px; border: 4px solid #fff; white-space: nowrap; box-shadow: 0 0 30px #facc15;
-    animation: popin .4s .7s cubic-bezier(.2,1.6,.4,1) both, blink .3s 1.1s steps(2) 3; }
+    animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, blink .3s calc(1.1s * var(--k)) steps(2) 3; }
   @keyframes cishake { 10%, 50%, 90% { transform: translate(-9px, 5px); } 30%, 70% { transform: translate(9px, -6px); } }
   @media (max-width: 640px) {
     .ci-band { height: clamp(150px, 30vh, 260px); }
@@ -407,10 +427,15 @@ export const HTML = String.raw`<!doctype html>
     border: 2px solid; animation: popin .5s cubic-bezier(.2,1.4,.4,1) both; }
   .speech::before { content: ""; position: absolute; top: -14px; left: 50%; margin-left: -12px; border: 12px solid transparent; border-top: 0; border-bottom: 14px solid; border-bottom-color: inherit; }
   .speech .who { font-weight: 800; font-size: 13px; margin-bottom: 6px; display: block; }
+  #comment.typing::after { content: "▍"; margin-left: 2px; animation: blink .6s steps(2) infinite; }
   .speech.roast  { background: linear-gradient(135deg, #3b0d0d, #1a0707); border-color: #ef4444; }
   .speech.roast .who { color: #f87171; }
   .speech.cold   { background: linear-gradient(135deg, #1b2230, #11151d); border-color: #64748b; }
   .speech.cold .who { color: #94a3b8; }
+  .speech.warm   { background: linear-gradient(135deg, #0b2e2b, #0a1a19); border-color: #2dd4bf; box-shadow: 0 0 24px rgba(45,212,191,.18); }
+  .speech.warm .who { color: #5eead4; }
+  .speech.good   { background: linear-gradient(135deg, #3a1d07, #1c1006); border-color: #fb923c; box-shadow: 0 0 32px rgba(251,146,60,.25); }
+  .speech.good .who { color: #fdba74; }
   .speech.praise { background: linear-gradient(135deg, #3b2a05, #1c1404); border-color: #facc15; box-shadow: 0 0 40px rgba(250,204,21,.3); }
   .speech.praise .who { color: #facc15; }
   .speech.kami { background: linear-gradient(135deg, #4a3405, #1c1404); border-color: #fde047; box-shadow: 0 0 50px rgba(253,224,71,.45), 0 0 0 1px #fff inset; }
@@ -464,10 +489,13 @@ export const HTML = String.raw`<!doctype html>
   .ob { display: inline-block; width: 1em; text-align: center; text-indent: 0; }
   .ob.n { width: .62em; }
 
-  /* 音のオン・オフ */
-  .mute { position: fixed; right: 14px; bottom: 14px; z-index: 90; width: 46px; height: 46px; border-radius: 50%; border: 1px solid #3b4252;
-    background: rgba(18,20,28,.92); font-size: 20px; cursor: pointer; display: grid; place-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+  /* 音のオン・オフと音量 */
+  .sound { position: fixed; right: 14px; bottom: 14px; z-index: 90; display: flex; align-items: center; gap: 4px; padding: 4px 14px 4px 4px; border-radius: 999px;
+    border: 1px solid #3b4252; background: rgba(18,20,28,.92); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+  .mute { width: 38px; height: 38px; border-radius: 50%; border: 0; background: transparent; font-size: 20px; cursor: pointer; display: grid; place-items: center; }
   .mute:hover { background: #1c2030; }
+  .sound input { width: 96px; accent-color: #1d9bf0; cursor: pointer; }
+  @media (max-width: 600px) { .sound input { width: 64px; } }
 
   /* 紙吹雪 */
   .confetti { position: fixed; top: -12px; width: 8px; height: 14px; z-index: 60; pointer-events: none; animation: fall linear forwards; }
@@ -498,7 +526,7 @@ export const HTML = String.raw`<!doctype html>
 </head>
 <body>
 <div class="toasts" id="toasts"></div>
-<button class="mute" id="mute" aria-label="音を消す">🔊</button>
+<div class="sound"><button class="mute" id="mute" aria-label="音を消す">🔊</button><input type="range" id="vol" min="0" max="100" step="1" aria-label="音量"></div>
 
 <div class="layout">
   <!-- 左：バズマップ -->
@@ -547,7 +575,7 @@ export const HTML = String.raw`<!doctype html>
         <div class="stat"><small>投稿回数</small><b id="myPosts">0</b></div>
         <div class="stat"><small>自己ベスト</small><b id="myBest">-</b></div>
         <div class="stat"><small>最高到達</small><b id="myTop" style="font-size:15px">-</b></div>
-        <div class="stat"><small>シークレット</small><b id="mySecret">0 / 3</b></div>
+        <div class="stat"><small>シークレット</small><b id="mySecret">0 / 7</b></div>
       </div>
     </div>
   </aside>
@@ -640,7 +668,7 @@ var LIKERS = [
 var TIPS = [
   "オチがあると点が伸びるのじゃ。", "会話形式は強いのじゃ。「」を使ってみるのじゃ。", "ハッシュタグは2個までにしておくのじゃ。",
   "仕事・家族・睡眠……みんなの「あるある」を狙うのじゃ。", "長すぎても短すぎてもいかんのじゃ。", "地球の先にも、まだ世界があるらしいのじゃ……",
-  "最後の一行で裏切るのじゃ。", "みんなが参加したくなるお題も強いのじゃ。", "右下のボタンで音を消せるのじゃ。"
+  "最後の一行で裏切るのじゃ。", "みんなが参加したくなるお題も強いのじゃ。", "バズマップの霧の向こうには、ワシもまだ行ったことがないのじゃ……", "右下で音量を変えたり、音を消したりできるのじゃ。"
 ];
 
 // ── 保存データの引っ越し（「神」を追加したので、∬… の番号が 12 → 13 になった）──
@@ -711,7 +739,7 @@ function scoreSpan(item, suffix) {
 }
 
 // ── バズ神（public/gods/*.png のアニメPNG）──
-var GOD_MOODS = ["idle", "think", "roast", "cold", "praise", "kami", "alien"], godsLoaded = false;
+var GOD_MOODS = ["idle", "think", "roast", "cold", "warm", "good", "praise", "kami", "alien"], godsLoaded = false;
 function godImg(mood) {
   var img = document.createElement("img");
   img.className = "god"; img.alt = "バズ神"; img.src = "/gods/" + mood + ".png";
@@ -726,6 +754,9 @@ function preloadGods() {
 var Sound = (function () {
   var ctx = null, master, musicBus, sfxBus, verb, echo, noiseBuf, cur = null;
   var muted = false; try { muted = localStorage.getItem("buzz_mute") === "1"; } catch (e) {}
+  // 音量（0〜100）。耳の感じ方に合わせて2乗で効かせる。最初は32（＝以前の音の約10%）
+  var vol = 32; try { var sv = localStorage.getItem("buzz_vol"); if (sv !== null && sv !== "" && !isNaN(sv)) vol = Number(sv); } catch (e) {}
+  function volGain() { return 0.8 * Math.pow(vol / 100, 2); }
   var mood = "idle", step = 0, nextTime = 0;
   function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
@@ -735,7 +766,7 @@ var Sound = (function () {
     var comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -18; comp.knee.value = 8; comp.ratio.value = 12; comp.attack.value = 0.003; comp.release.value = 0.2;
     var out = ctx.createGain(); out.gain.value = 0.9;
-    master = ctx.createGain(); master.gain.value = 0.8;
+    master = ctx.createGain(); master.gain.value = volGain();
     master.connect(comp); comp.connect(out); out.connect(ctx.destination);
     musicBus = ctx.createGain(); musicBus.gain.value = 0.5; musicBus.connect(master);
     sfxBus = ctx.createGain(); sfxBus.gain.value = 0.75; sfxBus.connect(master);
@@ -872,6 +903,8 @@ var Sound = (function () {
   ];
   var EARTH_MEL = [[72, 0, 76, 79, 84, 0, 79, 76], [77, 0, 81, 84, 89, 0, 84, 81], [79, 0, 83, 86, 91, 0, 86, 83], [84, 0, 79, 76, 72, 0, 0, 0]];
   var KAZOO = [[72, 0, 76, 0, 74, 0, 71, 0], [72, 0, 69, 0, 67, 0, 0, 0], [65, 0, 69, 0, 67, 0, 64, 0], [62, 64, 60, 0, 0, 0, 0, 0]];
+  // アジア：ドレミソラの五音音階
+  var GOOD_MEL = [[81, 0, 79, 76, 79, 0, 81, 84], [86, 0, 84, 81, 79, 0, 76, 79], [81, 0, 76, 74, 76, 0, 79, 81], [84, 81, 79, 76, 72, 0, 0, 0]];
   var MOODS = {
     // 待機中：ノリのいい王道進行（128BPM）
     idle: { bpm: 128, play: function (n, t, sd) {
@@ -948,6 +981,35 @@ var Sound = (function () {
       if (Math.random() < 0.45) noise(t + Math.random() * sd, 0.01, { f: 2500, vol: 0.01 + Math.random() * 0.025 });
       if (s === 6 && bar % 2 === 0) note(t, mtof(ch[2] + 12), sd * 3, { vol: 0.03, sus: 0.2, dec: 0.6, echo: 0.4 });
     } },
+    // 全国：ちょっと得意げで、ゆるくノれるグルーヴ
+    warm: { bpm: 100, swing: 0.12, play: function (n, t, sd) {
+      var s = n % 16, bar = Math.floor(n / 16) % 4, pr = [["C", 36], ["Am", 33], ["F", 29], ["G", 31]][bar], ch = CH[pr[0]];
+      if (s === 0 || s === 10) kick(t, 0.6);
+      if (s === 4 || s === 12) snare(t, 0.18);
+      if (s % 2 === 0) hat(t, s % 4 === 2 ? 0.05 : 0.025);
+      if ([0, 3, 6, 10].indexOf(s) >= 0) bass(t, pr[1] + 12 + (s === 6 ? 7 : s === 10 ? 12 : 0), sd * 1.8, 0.24);
+      if (s % 4 === 2) ch.forEach(function (m) { note(t, mtof(m), sd * 1.2, { type: "triangle", vol: 0.032, sus: 0.3, dec: 0.25, r: 0.1 }); });
+      if (bar % 2 === 1 && (s === 8 || s === 11 || s === 14)) pluck(t, ch[s % 3] + 24, 0.03);
+    } },
+    // アジア：明るくはずむ五音音階のメロディ
+    good: { bpm: 122, play: function (n, t, sd) {
+      var s = n % 16, bar = Math.floor(n / 16) % 4, pr = [["F", 41], ["G", 43], ["Am", 45], ["C", 36]][bar], ch = CH[pr[0]];
+      if (s % 4 === 0) kick(t, 0.8);
+      if (s === 4 || s === 12) clap(t, 0.28);
+      if (s % 4 === 2) hat(t, 0.08, true); else if (s % 2 === 1) hat(t, 0.03);
+      if (s % 2 === 0) bass(t, pr[1] + (s % 4 === 2 ? 12 : 0), sd * 1.5, 0.18);
+      if (s % 4 === 2) ch.forEach(function (m) { pluck(t, m + 12, 0.03); });
+      if (s % 2 === 0 && GOOD_MEL[bar][s / 2]) bell(t, GOOD_MEL[bar][s / 2], 0.6, 0.04);
+    } },
+    // 溜め（シークレットの最後の1段の前）：心臓の音と、せり上がる音
+    tame: { bpm: 100, play: function (n, t, sd) {
+      if (n === 0) {
+        noise(t, 1.2, { f: 400, fTo: 9000, vol: 0.12, swell: true });
+        note(t, mtof(38), 1.3, { type: "sawtooth", vol: 0.09, lp: 180, lpTo: 1600, a: 0.1, sus: 1, r: 0.2 });
+        note(t, mtof(62), 1.2, { slide: mtof(86), vol: 0.035, a: 0.3, sus: 1, r: 0.1 });
+      }
+      if (n % 6 === 0 || n % 6 === 1) kick(t, n % 6 ? 0.55 : 0.95);
+    } },
     // 地球：勝利のファンファーレ
     earth: { bpm: 116, play: function (n, t, sd) {
       if (n === 0) {
@@ -1018,17 +1080,21 @@ var Sound = (function () {
       sweep(t, [[660, 0], [1310, 0.25], [660, 0.5], [1310, 0.75], [660, 1], [1310, 1.2]], "square", 0.05);
     },
     // カットイン：シュッ → ドン → キュイン（段階が上がるほど派手）
-    cutin: function (t, tier) {
-      noise(t, 0.3, { ft: "bandpass", f: 300, fTo: 5000, q: 1.2, vol: 0.3, swell: true, sfx: 1 });
-      kick(t + 0.32, 1.2, { sfx: 1, boom: tier >= 3 });
-      noise(t + 0.32, 0.45 + tier * 0.1, { f: 2500, vol: 0.12 + tier * 0.02, sfx: 1, verb: 0.4 });
-      note(t + 0.34, 700, 0.55, { type: "sawtooth", slide: 3200, slideT: 0.35, vol: 0.04 + tier * 0.008, lp: 6000, vib: [18, 40, 0], r: 0.15, echo: 0.3, sfx: 1 });
-      note(t + 0.34, 1400, 0.5, { type: "square", slide: 5200, slideT: 0.35, vol: 0.015 + tier * 0.005, r: 0.15, sfx: 1 });
-      if (tier >= 2) [72, 76, 79, 84].forEach(function (m) { note(t + 0.5, mtof(m + (tier >= 4 ? 2 : 0)), 0.7, { type: "sawtooth", vol: 0.025, lp: 3200, sus: 0.6, r: 0.3, verb: 0.4, sfx: 1 }); });
-      if (tier >= 4 && tier < 6) [84, 88, 91, 96, 100].forEach(function (m, k) { bell(t + 0.55 + k * 0.06, m, 1, 0.04, { sfx: 1 }); });
-      if (tier === 5) choir(t + 0.4, [60, 67, 72, 76], 1.1, 0.04, { sfx: 1 });
-      if (tier === 6) for (var k = 0; k < 14; k++) note(t + 0.3 + k * 0.07, rnd(150, 3500), 0.05, { type: "square", vol: 0.04, sfx: 1 });
+    // a は段階の番号（tier）か { tier, k }。k はカットインの速さの倍率（小さいほど速い）で、ドンの位置を絵に合わせる
+    cutin: function (t, a) {
+      var tier = a.tier == null ? a : a.tier, k = a.k || 1, h = t + 0.32 * k;
+      noise(t, 0.3 * k, { ft: "bandpass", f: 300, fTo: 5000, q: 1.2, vol: 0.3, swell: true, sfx: 1 });
+      kick(h, 1.2, { sfx: 1, boom: tier >= 3 || k > 1.2 });
+      noise(h, 0.45 + tier * 0.1, { f: 2500, vol: 0.12 + tier * 0.02, sfx: 1, verb: 0.4 });
+      note(h + 0.02, 700, 0.55, { type: "sawtooth", slide: 3200, slideT: 0.35, vol: 0.04 + tier * 0.008, lp: 6000, vib: [18, 40, 0], r: 0.15, echo: 0.3, sfx: 1 });
+      note(h + 0.02, 1400, 0.5, { type: "square", slide: 5200, slideT: 0.35, vol: 0.015 + tier * 0.005, r: 0.15, sfx: 1 });
+      if (tier >= 2) [72, 76, 79, 84].forEach(function (m) { note(h + 0.18, mtof(m + (tier >= 4 ? 2 : 0)), 0.7, { type: "sawtooth", vol: 0.025, lp: 3200, sus: 0.6, r: 0.3, verb: 0.4, sfx: 1 }); });
+      if (tier >= 4 && tier < 6) [84, 88, 91, 96, 100].forEach(function (m, j) { bell(h + 0.23 + j * 0.06, m, 1, 0.04, { sfx: 1 }); });
+      if (tier === 5) choir(h + 0.08, [60, 67, 72, 76], 1.1, 0.04, { sfx: 1 });
+      if (tier === 6) for (var j = 0; j < 14; j++) note(h + j * 0.07, rnd(150, 3500), 0.05, { type: "square", vol: 0.04, sfx: 1 });
     },
+    // 講評の文字送り（ピピピ）
+    type: function (t, m) { note(t, mtof(m), 0.035, { type: "square", vol: 0.03, lp: 2400, r: 0.02, sfx: 1 }); },
     unlock: function (t) { [84, 88, 91, 96, 100, 103].forEach(function (m, k) { bell(t + k * 0.07, m, 1.3, 0.05, { sfx: 1 }); }); },
     post: function (t) {
       noise(t, 0.3, { ft: "bandpass", f: 500, fTo: 6000, q: 1, vol: 0.25, swell: true, sfx: 1 });
@@ -1078,6 +1144,12 @@ var Sound = (function () {
     mood: function (name) { if (name !== mood || !cur) startMood(name); },
     sfx: function (name, arg) { if (ctx && ctx.state === "running" && cur) SFX[name](ctx.currentTime + 0.02, arg); },
     muted: function () { return muted; },
+    volume: function () { return vol; },
+    setVolume: function (v) {
+      vol = Math.max(0, Math.min(100, Math.round(Number(v))));
+      try { localStorage.setItem("buzz_vol", String(vol)); } catch (e) {}
+      if (master) master.gain.setTargetAtTime(volGain(), ctx.currentTime, 0.03);
+    },
     toggle: function () {
       muted = !muted;
       try { localStorage.setItem("buzz_mute", muted ? "1" : "0"); } catch (e) {}
@@ -1086,7 +1158,7 @@ var Sound = (function () {
     },
     visible: function (v) { if (!ctx) return; if (!v) ctx.suspend(); else if (!muted) ctx.resume(); },
     // 結果の段階 → 曲
-    forLevel: function (i) { return i <= 2 ? "roast" : i <= 5 ? "cold" : i === EARTH ? "earth" : i < KAMI ? "cosmic" : i === KAMI ? "kami" : "glitch"; },
+    forLevel: function (i) { return i <= 2 ? "roast" : i === 3 ? "cold" : i === 4 ? "warm" : i === 5 ? "good" : i === EARTH ? "earth" : i < KAMI ? "cosmic" : i === KAMI ? "kami" : "glitch"; },
     // 確認用：曲や効果音をこっそり録音して、音の大きさ（ピークとRMS）を返す
     measure: async function (kind, name, secs) {
       var keep = [ctx, master, musicBus, sfxBus, verb, echo, noiseBuf, cur];
@@ -1109,12 +1181,19 @@ document.addEventListener("pointerdown", function () { Sound.init(); });
 document.addEventListener("keydown", function () { Sound.init(); });
 document.addEventListener("visibilitychange", function () { Sound.visible(!document.hidden); });
 function paintMute() {
-  var m = Sound.muted();
-  $("mute").textContent = m ? "🔇" : "🔊";
+  var m = Sound.muted(), v = Sound.volume();
+  $("mute").textContent = m || v === 0 ? "🔇" : v < 34 ? "🔈" : v < 67 ? "🔉" : "🔊";
   $("mute").setAttribute("aria-label", m ? "音を出す" : "音を消す");
   $("mute").title = m ? "音を出す" : "音を消す";
 }
 $("mute").addEventListener("click", function () { Sound.init(); Sound.toggle(); paintMute(); });
+// 音量スライダー（動かすと、消音中でも音が戻る）
+$("vol").value = Sound.volume();
+$("vol").addEventListener("input", function () {
+  Sound.init(); Sound.setVolume(this.value);
+  if (Sound.muted() && Number(this.value) > 0) Sound.toggle();
+  paintMute();
+});
 paintMute();
 
 // ── 解放したシークレット（このブラウザだけに保存）──
@@ -1125,15 +1204,15 @@ function saveStats(v) { try { localStorage.setItem("buzz_stats", JSON.stringify(
 function loadBest() { try { return Number(localStorage.getItem("buzz_best") || -1); } catch (e) { return -1; } }
 function saveBest(v) { try { localStorage.setItem("buzz_best", String(v)); } catch (e) {} }
 
-// 宇宙から上は、一度届くまでバズマップにも数にも出さない
-function isVisible(i, best) { return !LV[i].h || best >= i; }
+// 宇宙から上は、実際に届くまで「霧」の中（名前も絵文字も出さない）
+function isVisible(i, unlocked) { return !LV[i].h || unlocked.indexOf(i) >= 0; }
 function secretCount() {
-  var best = loadBest(), unlocked = loadUnlocked(), total = 0, got = 0;
-  LV.forEach(function (lv, i) {
-    if (!lv.s || !isVisible(i, best)) return;
-    total++; if (unlocked.indexOf(i) >= 0) got++;
-  });
-  return got + " / " + total;
+  return loadUnlocked().length + " / " + LV.filter(function (lv) { return lv.s; }).length;
+}
+// 踏破：届いたことのある段階の数（ふつうの段階は最高到達までぜんぶ、シークレットは実際に届いたものだけ）
+function reachedCount() {
+  var best = loadBest();
+  return (best < 0 ? 0 : Math.min(best, EARTH) + 1) + loadUnlocked().length;
 }
 function renderMyStats() {
   var st = loadStats(), top = loadBest();
@@ -1149,10 +1228,19 @@ function renderMap(nowIndex) {
   var unlocked = loadUnlocked(), best = loadBest();
   var map = $("map"); map.innerHTML = "";
   var strip = $("mapstrip"); strip.innerHTML = "";
+  var fogged = LV.some(function (lv, i) { return !isVisible(i, unlocked); });
   LV.forEach(function (lv, i) {
-    if (!isVisible(i, best)) return;
-    var open = !lv.s || unlocked.indexOf(i) >= 0;
     if (i === 7) { var d = document.createElement("li"); d.className = "divider"; map.append(d); }
+    if (lv.h && i === LV.findIndex(function (x) { return x.h; }) && fogged) { var fl = document.createElement("li"); fl.className = "fogline"; map.append(fl); }
+    if (!isVisible(i, unlocked)) {
+      var f = document.createElement("li"); f.className = "fog"; f.style.opacity = Math.max(0.25, 0.75 - (i - 10) * 0.15);
+      var fe = document.createElement("span"); fe.className = "me"; fe.textContent = "☁️";
+      f.append(fe, obf(document.createElement("span"), "∬∃▽◇◎".slice(0, 2 + (i % 3))));
+      map.append(f);
+      var fs = document.createElement("span"); fs.textContent = "☁️"; fs.style.opacity = ".4"; strip.append(fs);
+      return;
+    }
+    var open = !lv.s || unlocked.indexOf(i) >= 0;
     var li = document.createElement("li");
     li.className = (lv.s ? "secret " : "") + (open ? "" : "locked ") + (i <= best ? "reached " : "") + (i === best ? "best " : "") + (i === nowIndex ? "now" : "");
     var e = document.createElement("span"); e.className = "me"; e.textContent = open ? lv.emoji : "🔒";
@@ -1160,7 +1248,7 @@ function renderMap(nowIndex) {
     li.append(e, n); map.append(li);
     var s = document.createElement("span"); s.textContent = open ? lv.emoji : "❔"; strip.append(s);
   });
-  $("unlockCount").textContent = "シークレット " + secretCount();
+  $("unlockCount").textContent = "踏破 " + reachedCount() + " / " + LV.length;
 }
 
 // ── 入力欄 ──
@@ -1288,29 +1376,47 @@ var SCENES = [
 
 // ── パチンコ風カットイン（太陽系から上は、1段ごとに入る）──
 var TIERS = [
-  { cls: "t0", stamp: "チャンス!" }, { cls: "t1", stamp: "アツい!!" }, { cls: "t2", stamp: "激アツ!!" }, { cls: "t3", stamp: "超激アツ!!!" },
-  { cls: "t4", stamp: "確定!?" }, { cls: "t5", stamp: "神確定" }, { cls: "t6", stamp: "∃RR0R" }
+  { cls: "t0", stamp: "チャンス!", color: "#3b82f6" }, { cls: "t1", stamp: "アツい!!", color: "#16a34a" }, { cls: "t2", stamp: "激アツ!!", color: "#dc2626" },
+  { cls: "t3", stamp: "超激アツ!!!", color: "#eab308" }, { cls: "t4", stamp: "確定!?", color: "#db2777" }, { cls: "t5", stamp: "神確定", color: "#f59e0b" },
+  { cls: "t6", stamp: "∃RR0R", color: "#22c55e" }
 ];
-function cutInMs(i) { return i === GLITCH ? 1900 : i >= 11 ? 1800 : 1600; }
-function cutIn(stage, i, isNew) {
-  var tier = i - 7, ms = cutInMs(i);
-  var c = document.createElement("div"); c.className = "cutin " + TIERS[tier].cls; c.style.setProperty("--d", ms + "ms");
+// 上昇の段取り。シークレットは「前に届いたことがある段」と「今回の到達段」だけ見せる（まだ見ていない段のネタバレを防ぐ）
+// 通過するシークレットはだんだん速く、最後の1段の前で「溜め」て、最後はスローで大きく見せる
+var TAME_MS = 1100;
+function climbPlan(idx, seen) {
+  var steps = [], pass = [];
+  for (var i = 0; i <= idx; i++) {
+    if (i < 7) steps.push({ i: i, ms: idx >= 7 ? 420 - i * 30 : 380 });   // シークレットまで行くときは、加速しながら突入する
+    else if (i === idx) steps.push({ i: i, ms: i === GLITCH ? 3000 : i >= KAMI ? 2800 : 2400, k: 1.5, final: true });
+    else if (seen.indexOf(i) >= 0) { var p = { i: i }; steps.push(p); pass.push(p); }
+  }
+  pass.forEach(function (p, j) {
+    p.ms = Math.round(1250 - 550 * (pass.length > 1 ? j / (pass.length - 1) : 0));
+    p.k = p.ms / 1600;
+  });
+  return steps;
+}
+function cutIn(stage, p, isNew) {
+  var i = p.i, tier = i - 7;
+  var c = document.createElement("div"); c.className = "cutin " + TIERS[tier].cls + (p.final ? " final" : "");
+  c.style.setProperty("--d", p.ms + "ms"); c.style.setProperty("--k", p.k);
   c.innerHTML = '<div class="ci-lines"></div><div class="ci-band"><img class="ci-god" alt=""><div class="ci-txt"><div class="ci-label"></div><div class="ci-name"></div></div></div>' +
-    '<div class="ci-stamp"></div><div class="ci-flash"></div>';
+    '<div class="ci-stamp"></div>' + (p.final ? '<div class="ci-ring"></div>' : "") + '<div class="ci-flash"></div>';
   c.querySelector(".ci-god").src = "/gods/" + (i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
   c.querySelector(".ci-label").textContent = i <= 9 ? "SECRET " + (i - 6) : "ULTRA SECRET";
   var nm = c.querySelector(".ci-name"); nm.style.setProperty("--n", Array.from(LV[i].name).length); obf(nm, LV[i].name);
   obf(c.querySelector(".ci-stamp"), TIERS[tier].stamp);
   if (isNew) { var nb = document.createElement("div"); nb.className = "ci-new"; nb.textContent = "NEW!! 初到達"; c.append(nb); }
   stage.append(c);
-  Sound.sfx("cutin", tier);
+  Sound.sfx("cutin", { tier: tier, k: p.k });
   return c;
 }
 
 var skipped = false;
 async function wait(ms) { var t = 0; while (t < ms && !skipped) { await sleep(50); t += 50; } }
 
-async function playCinema(d, prevBest) {
+// seen：今回の投稿より前に届いたことのあるシークレットの番号
+async function playCinema(d, seen) {
   var cinema = $("cinema"), stage = $("stage"), idx = d.levelIndex;
   skipped = false;
   cinema.classList.add("show");
@@ -1322,16 +1428,29 @@ async function playCinema(d, prevBest) {
   hud.innerHTML = '<span>🔁 <b id="hrt">0</b></span><span class="l">❤️ <b id="hlike">0</b></span>';
   var climb = document.createElement("div"); climb.className = "climb";
   stage.innerHTML = ""; stage.append(climb, hud);
-  var per = idx >= 7 ? 260 : 380, total = idx >= 7 ? 1300 : 0;
-  for (var k = 0; k <= idx; k++) total += k >= 7 ? cutInMs(k) : per;
+  var plan = climbPlan(idx, seen), total = idx >= 7 ? 1300 + TAME_MS : 0;
+  plan.forEach(function (p) { total += p.ms; });
   countUp($("hlike"), d.likes, total + 300);
   countUp($("hrt"), d.retweets, total + 300);
-  for (var i = 0; i <= idx && !skipped; i++) {
-    if (i === 7) {
+  var prev = null;   // 1つ前のカットイン（次のカットインと少し重ねて、つなぎ目を見せない）
+  for (var s = 0; s < plan.length && !skipped; s++) {
+    var p = plan[s], i = p.i;
+    if (i >= 7 && plan[s - 1].i < 7) {
       var w = document.createElement("div"); w.className = "warning"; w.textContent = "⚠ SECRET ZONE 突入 ⚠";
       stage.append(w); Sound.mood("secret"); Sound.sfx("siren");
       await wait(1300); w.remove();
       if (skipped) break;
+    }
+    var tm = null;
+    if (p.final && i >= 7) {
+      // 溜め：今のカットインが止まって暗くなり、心臓の音だけになる
+      if (prev) prev.classList.add("freeze");
+      tm = document.createElement("div"); tm.className = "tame"; tm.style.setProperty("--tc", TIERS[i - 7].color);
+      tm.innerHTML = '<div class="tame-txt">！？</div>'; stage.append(tm);
+      Sound.mood("tame");
+      await wait(TAME_MS);
+      if (skipped) break;
+      Sound.mood("secret");
     }
     climb.style.background = CLIMB_BG[i];
     climb.innerHTML = '<div class="big">' + LV[i].emoji + '</div><div class="nm"></div>';
@@ -1339,8 +1458,12 @@ async function playCinema(d, prevBest) {
     renderMap(i);
     toast("❤️ " + pickOne(LIKERS[i]) + "さんがいいねしました");
     Sound.sfx("blip", i);
-    if (i >= 7) { var ci = cutIn(stage, i, i > prevBest); await wait(cutInMs(i)); ci.remove(); }
-    else await wait(per);
+    if (i < 7) { await wait(p.ms); continue; }
+    var ci = cutIn(stage, p, seen.indexOf(i) < 0);
+    if (prev) setTimeout(prev.remove.bind(prev), 300);
+    if (tm) setTimeout(tm.remove.bind(tm), 300);
+    prev = ci;
+    await wait(p.ms);
   }
 
   // ② 到達した段階のシーン
@@ -1370,7 +1493,7 @@ $("skip").addEventListener("click", function () { skipped = true; });
 
 // ── 結果画面 ──
 var AXES = [["empathy", "共感"], ["surprise", "意外性"], ["fun", "ネタ度"], ["spread", "拡散力"]];
-var WHO = { roast: "😡 バズ神の講評（激辛）", cold: "😐 バズ神の講評（塩）", praise: "😭 バズ神の講評（大絶賛）" };
+var WHO = { roast: "😡 バズ神の講評（激辛）", cold: "😐 バズ神の講評（塩）", warm: "😏 バズ神の講評（なかなか）", good: "😆 バズ神の講評（ほめ）", praise: "😭 バズ神の講評（大絶賛）" };
 var WHO_KAMI = "⛩️ バズ神の講評（ひれ伏し）", WHO_ALIEN = "👁️ ∃ズ神の講∬（解読不能）";
 var SYMS = Array.from("∬∃▽◇◎＄￡※⊆〒");
 var TAGS = { 6: ["MAX", "max"], 7: ["OVER!", ""], 8: ["OVER!!", ""], 9: ["OVER!!!", ""], 10: ["LIMIT BREAK", "blink"], 11: ["時空のゆがみ", "blink"], 12: ["神域", "max"], 13: ["∃RR0R", "blink"] };
@@ -1380,14 +1503,25 @@ function randSyms(n) { var s = ""; for (var i = 0; i < n; i++) s += pickOne(SYMS
 
 // ∬… の講評とリプライは記号の部分が文字化けする
 function putText(el, text, idx) { if (idx === GLITCH) obf(el, text); else el.textContent = text; return el; }
-async function typeText(el, text, idx) {
-  el.textContent = "";
-  var chars = Array.from(text);
-  for (var i = 0; i < chars.length; i++) {
-    if (idx === GLITCH) obf(el, chars.slice(0, i + 1).join("")); else el.textContent += chars[i];
-    await sleep(26);
+// 講評を1文字ずつ打ち込む（吹き出しをクリックすると最後まで一気に出る）
+// resultRun は結果画面を開くたび・閉じるたびに増える番号。古い打ち込みはそこで止まる
+var resultRun = 0, typeSkip = false;
+async function typeText(el, text, idx, run) {
+  var chars = Array.from(text), pitch = idx >= EARTH ? 81 : idx >= 3 ? 72 : 67;
+  typeSkip = false;
+  el.textContent = ""; el.classList.add("typing");
+  await sleep(450);
+  for (var i = 0; i < chars.length && run === resultRun && !typeSkip; i++) {
+    var shown = chars.slice(0, i + 1).join(""), c = chars[i];
+    if (idx === GLITCH) obf(el, shown); else el.textContent = shown;
+    if (i % 2 === 0 && c.trim()) Sound.sfx("type", pitch + (i % 3) * 2);
+    await sleep("。！？!?".indexOf(c) >= 0 ? 320 : "、…".indexOf(c) >= 0 ? 160 : c === " " ? 30 : 55);
   }
+  if (run !== resultRun) return false;
+  putText(el, text, idx); el.classList.remove("typing");
+  return true;
 }
+$("speech").addEventListener("click", function () { typeSkip = true; });
 
 // バズ力と4つのパラメーター（地球から上は限界突破）
 function renderScore(d) {
@@ -1433,7 +1567,7 @@ async function morphGod(g, pattern) {
 }
 
 async function showResult(d) {
-  var res = $("result"), idx = d.levelIndex, pattern = d.pattern ? "　#" + d.pattern : "";
+  var res = $("result"), idx = d.levelIndex, pattern = d.pattern ? "　#" + d.pattern : "", run = ++resultRun;
   res.classList.add("show"); res.scrollTop = 0;
   document.body.style.overflow = "hidden";
   var g = godImg(idx === KAMI ? "kami" : idx === GLITCH ? "praise" : d.tone);
@@ -1451,8 +1585,8 @@ async function showResult(d) {
 
   var box = $("replies"); box.innerHTML = "";
   if (idx >= EARTH) confetti(100);
-  await typeText($("comment"), d.comment, idx);
-  for (var i = 0; i < d.replies.length; i++) {
+  if (!(await typeText($("comment"), d.comment, idx, run))) return;
+  for (var i = 0; i < d.replies.length && run === resultRun; i++) {
     var r = d.replies[i];
     var row = document.createElement("div"); row.className = "reply";
     var av = putText(document.createElement("div"), Array.from(r.name)[0], idx); av.className = "avatar";
@@ -1468,6 +1602,7 @@ function closeResult() {
   $("result").classList.remove("show");
   $("testBadge").classList.remove("show"); $("admin").style.display = "";
   document.body.style.overflow = "";
+  resultRun++;
   Sound.mood("idle");
   renderLast();
 }
@@ -1506,15 +1641,17 @@ postBtn.addEventListener("click", async function () {
   lastResult = data;
 
   // シークレット解放と自己ベストの記録
-  var prevBest = loadBest();
+  var prevBest = loadBest(), seen = loadUnlocked();
   var st = loadStats(); st.posts += 1; if (st.best == null || data.score > st.best) st.best = data.score; saveStats(st);
   if (data.secret) {
     var u = loadUnlocked();
     if (u.indexOf(data.levelIndex) < 0) { u.push(data.levelIndex); saveUnlocked(u); setTimeout(function () { toast("🔓 シークレット「" + data.level + "」を解放！"); }, 400); }
+    // 見えている最後のシークレット（銀河団）に初めて届いたら、霧の向こうをほのめかす
+    if (data.levelIndex === 9 && seen.indexOf(9) < 0) setTimeout(function () { toast("🌫️ 霧の向こうに、まだ何かある気配がする……"); }, 2600);
   }
   if (data.levelIndex > prevBest) saveBest(data.levelIndex);
 
-  await playCinema(data, prevBest);
+  await playCinema(data, seen);
   renderMap(data.levelIndex);
   renderMyStats(); loadTop3();
   postBtn.disabled = false;
@@ -1609,7 +1746,7 @@ async function runTest(level) {
   if (!r.ok) { toast("⚠️ " + data.error); return; }
   lastResult = data; preloadGods();
   $("admin").style.display = "none"; $("testBadge").classList.add("show");
-  await playCinema(data, loadBest());
+  await playCinema(data, loadUnlocked());
   await showResult(data);
 }
 if (new URLSearchParams(location.search).has("admin") || adminKey) {

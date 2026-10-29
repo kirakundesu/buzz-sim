@@ -4,7 +4,7 @@ import { describe, it, expect } from "vitest";
 import { simulateBuzz, score } from "../src/index.js";
 import { LEVELS, BASE_COMMENTS, LEVEL_REPLIES, THEME_COMMENTS, THEME_REPLIES } from "../src/data.js";
 
-const OPENER = { roast: "は？", cold: "あー……", praise: "ちょっと待って" };
+const OPENER = { roast: "は？", cold: "あー……", warm: "ほう……", good: "おお！", praise: "ちょっと待って" };
 
 describe("段階", () => {
 	it("14段階で、神は四次元と∬…の間にある", () => {
@@ -23,7 +23,7 @@ describe("段階", () => {
 			expect(LEVEL_REPLIES[l.name].length).toBeGreaterThan(0);
 			for (const c of BASE_COMMENTS[l.name]) expect(c.startsWith(OPENER[l.tone])).toBe(true);
 		}
-		for (const tone of ["roast", "cold", "praise"]) {
+		for (const tone of Object.keys(OPENER)) {
 			for (const p of Object.keys(THEME_COMMENTS.roast)) {
 				expect(THEME_COMMENTS[tone][p].length).toBeGreaterThan(0);
 				expect(THEME_REPLIES[tone][p].length).toBeGreaterThan(0);

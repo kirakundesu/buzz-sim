@@ -149,6 +149,48 @@ const MOODS = {
     });
   } },
 
+  // 全国（ほう……）：片眉を上げてニヤリ。うんうんとうなずく
+  warm: { delay: 80, frame(i, t) {
+    const nod = Math.max(0, sin(TAU * 2 * t));
+    const blink = i === 15 || i === 16;
+    const tw = Math.max(0, sin(TAU * t));
+    const face =
+      `<path d="M76 79 Q84 76 92 79" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>` +
+      `<path d="M108 ${f(74 - 3 * nod)} Q116 ${f(67 - 3 * nod)} 124 ${f(72 - 3 * nod)}" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>` +
+      (blink ? eyesShut
+             : `<ellipse cx="84" cy="89" rx="5" ry="3.4" fill="#1f2937"/><circle cx="116" cy="88" r="5.5" fill="#1f2937"/><circle cx="118" cy="86" r="1.6" fill="#fff"/>`) +
+      `<path d="M91 110 Q102 115 112 105" fill="none" stroke="#7c2d12" stroke-width="3" stroke-linecap="round"/>`;
+    return body({
+      dy: 3 * nod, auraStr: aura("#2dd4bf", 0.18),
+      birdOpt: { dy: -2 * nod, wing: -12 * nod },
+      heart: 1 + 0.1 * Math.max(0, sin(TAU * 2 * t)),
+      face, front: star4(140, 72, 7 * tw, "#99f6e4", tw),
+    });
+  } },
+
+  // アジア（おお！）：目をキラキラさせて跳ねる。泣くほどではない
+  good: { delay: 70, frame(i, t) {
+    const hop = Math.abs(sin(TAU * 2 * t));
+    let sp = "";
+    [[30, 50, 0], [170, 40, 0.3], [20, 140, 0.6], [182, 130, 0.15]].forEach(([x, y, ph]) => {
+      const k = Math.max(0, sin(TAU * ((t + ph) % 1)));
+      sp += star4(x, y, 8 * k, "#fdba74");
+    });
+    const face =
+      `<path d="M75 ${f(77 - 2 * hop)} Q84 ${f(71 - 2 * hop)} 93 ${f(77 - 2 * hop)}" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>` +
+      `<path d="M107 ${f(77 - 2 * hop)} Q116 ${f(71 - 2 * hop)} 125 ${f(77 - 2 * hop)}" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>` +
+      `<circle cx="84" cy="89" r="6" fill="#1f2937"/><circle cx="116" cy="89" r="6" fill="#1f2937"/>` +
+      star4(86, 87, 3.2, "#fff") + star4(118, 87, 3.2, "#fff") +
+      `<path d="M86 105 Q100 ${f(122 + 2 * hop)} 114 105 Z" fill="#7c2d12"/><path d="M91 112 Q100 118 109 112" fill="#f87171"/>`;
+    return body({
+      dy: -4 * hop,
+      auraStr: rays(10, 36 * t, "#fdba74", 0.22) + aura("#fb923c", 0.2),
+      birdOpt: { dy: -6 * hop, wing: -40 * Math.abs(sin(TAU * 4 * t)) },
+      heart: 1 + 0.16 * hop,
+      face, front: sp,
+    });
+  } },
+
   // 絶賛：号泣、キラキラ、回る後光
   praise: { delay: 70, colors: 128, frame(i, t) {
     let tears = "";

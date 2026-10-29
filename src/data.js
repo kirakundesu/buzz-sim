@@ -17,18 +17,20 @@ import kami from "./lines/kami.js";
 import glitch from "./lines/glitch.js";
 import toneRoast from "./lines/tone-roast.js";
 import toneCold from "./lines/tone-cold.js";
+import toneWarm from "./lines/tone-warm.js";
+import toneGood from "./lines/tone-good.js";
 import tonePraise from "./lines/tone-praise.js";
 
 // ── 14段階（通常7 + シークレット7）──
-// minScore 以上でその段階。tone は バズ神のキャラ（roast=毒舌 / cold=塩 / praise=絶賛）
+// minScore 以上でその段階。tone は バズ神のキャラ（roast=毒舌 / cold=塩 / warm=なかなか / good=ほめ / praise=絶賛）
 // hidden: シークレットの中のシークレット。一度届くまでバズマップにも /api/levels にも出さない
 export const LEVELS = [
   { name: "家庭内", emoji: "🏠", minScore: 0,  likes: [0, 6],                     tone: "roast" },
   { name: "村",     emoji: "🌾", minScore: 14, likes: [6, 300],                   tone: "roast" },
   { name: "町",     emoji: "🏘️", minScore: 27, likes: [300, 5_000],               tone: "roast" },
   { name: "県",     emoji: "🏯", minScore: 40, likes: [5_000, 50_000],            tone: "cold" },
-  { name: "全国",   emoji: "🗾", minScore: 50, likes: [50_000, 500_000],          tone: "cold" },
-  { name: "アジア", emoji: "🌏", minScore: 60, likes: [500_000, 3_000_000],       tone: "cold" },
+  { name: "全国",   emoji: "🗾", minScore: 50, likes: [50_000, 500_000],          tone: "warm" },
+  { name: "アジア", emoji: "🌏", minScore: 60, likes: [500_000, 3_000_000],       tone: "good" },
   { name: "地球",   emoji: "🌍", minScore: 70, likes: [3_000_000, 20_000_000],    tone: "praise" },
   // ここからシークレット
   { name: "太陽系", emoji: "☀️", minScore: 77, likes: [2e7, 1e8],   tone: "praise", secret: true },
@@ -56,7 +58,7 @@ export const THEMES = {
 
 // ── 講評とリプライ（中身は src/lines/ のファイル。文章を足したり変えたりするときはそちらを触る）──
 // 段階ごとのファイル：{ comments: [書き出しの講評 100個], replies: [[名前, ID, 本文] 100個] }
-// 毒舌は「は？」、塩は「あー……」、絶賛は「ちょっと待って」で始まる
+// 毒舌は「は？」、塩は「あー……」、なかなか（全国）は「ほう……」、ほめ（アジア）は「おお！」、絶賛は「ちょっと待って」で始まる
 // tone ごとのファイル（tone-*.js）：{ comments: { パターン: [追い講評…] }, replies: { パターン: [[名前, ID, 本文], …] } }
 
 // LEVELS と同じ順番
@@ -68,5 +70,6 @@ export const LEVEL_REPLIES = Object.fromEntries(LEVELS.map((l, i) => [l.name, ST
 
 // パターン別の追い講評とリプライ（tone ごと）
 // 講評は「段階の書き出し」＋「パターン別の追い講評」の組み合わせでできる
-export const THEME_COMMENTS = { roast: toneRoast.comments, cold: toneCold.comments, praise: tonePraise.comments };
-export const THEME_REPLIES = { roast: toneRoast.replies, cold: toneCold.replies, praise: tonePraise.replies };
+const TONES = { roast: toneRoast, cold: toneCold, warm: toneWarm, good: toneGood, praise: tonePraise };
+export const THEME_COMMENTS = Object.fromEntries(Object.entries(TONES).map(([k, v]) => [k, v.comments]));
+export const THEME_REPLIES = Object.fromEntries(Object.entries(TONES).map(([k, v]) => [k, v.replies]));
