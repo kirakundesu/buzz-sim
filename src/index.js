@@ -3,6 +3,7 @@
 // POST /api/buzz     → ツイートのパターンを読み取って採点し、講評・リプライと一緒に返してD1に保存
 // GET  /api/history  → 最新のバズ履歴
 // GET  /api/ranking  → いいね数ランキング（?by=score でバズ力ランキング）
+//   下ネタ・差別語・URL の投稿（data.js の isUnlisted）は unlisted = 1 で保存し、この2つには出さない
 // POST /api/admin/check → 合言葉が正しいか確認（テストモード用）
 // POST /api/admin/test  → 段階を指定して演出をテスト（D1には保存しない）
 //
@@ -11,7 +12,7 @@
 //   ローカル：プロジェクト直下の .dev.vars に ADMIN_KEY=合言葉 と書く
 
 import { DurableObject } from "cloudflare:workers";
-import { LEVELS, THEMES, BASE_COMMENTS, THEME_COMMENTS, LEVEL_REPLIES, THEME_REPLIES } from "./data.js";
+import { LEVELS, THEMES, BASE_COMMENTS, THEME_COMMENTS, LEVEL_REPLIES, THEME_REPLIES, isUnlisted } from "./data.js";
 import { HTML } from "./page.js";
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, Math.round(n)));
@@ -308,11 +309,13 @@ export default {
         ? [...new Set(body.seen.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < LEVELS.length))] : [];
       const posts = Math.max(0, Math.min(10000, Math.floor(Number(body.posts) || 0)));
       const result = simulateBuzz(text, null, { seen, posts });
+      // 下ネタ・URL の投稿も採点して結果は返すが、ランキングと履歴には出さない（unlisted = 1）
+      const unlisted = isUnlisted(text);
       // D1に保存（env.DB は wrangler.jsonc の binding 名）
       await env.DB.prepare(
-        "INSERT INTO buzzes (text, level, emoji, score, likes, retweets, comment) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      ).bind(text, result.level, result.emoji, result.score, result.likes, result.retweets, result.comment).run();
-      return Response.json({ text, ...result });
+        "INSERT INTO buzzes (text, level, emoji, score, likes, retweets, comment, unlisted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind(text, result.level, result.emoji, result.score, result.likes, result.retweets, result.comment, unlisted ? 1 : 0).run();
+      return Response.json({ text, ...result, unlisted });
     }
 
     // ── テストモード（合言葉を知っている人だけ）──
@@ -330,13 +333,13 @@ export default {
       if (url.pathname === "/api/admin/test") {
         const level = Math.max(0, Math.min(LEVELS.length - 1, Number(body.level) || 0));
         const text = String(body.text ?? "").trim().slice(0, 140) || "（テスト投稿）";
-        return Response.json({ text, test: true, ...simulateBuzz(text, level) });
+        return Response.json({ text, test: true, ...simulateBuzz(text, level), unlisted: isUnlisted(text) });
       }
     }
 
     if (url.pathname === "/api/history") {
       const { results } = await env.DB.prepare(
-        "SELECT text, level, emoji, score, likes, created_at FROM buzzes ORDER BY id DESC LIMIT 20"
+        "SELECT text, level, emoji, score, likes, created_at FROM buzzes WHERE unlisted = 0 ORDER BY id DESC LIMIT 20"
       ).all();
       return Response.json(results);
     }
@@ -347,13 +350,13 @@ export default {
       const order = byScore
         ? "CASE level " + LEVELS.map(() => "WHEN ? THEN ?").join(" ") + " ELSE -1 END DESC, score DESC, likes DESC"
         : "likes DESC";
-      const { results } = await env.DB.prepare("SELECT text, level, emoji, score, likes FROM buzzes ORDER BY " + order + " LIMIT 10")
+      const { results } = await env.DB.prepare("SELECT text, level, emoji, score, likes FROM buzzes WHERE unlisted = 0 ORDER BY " + order + " LIMIT 10")
         .bind(...(byScore ? LEVELS.flatMap((l, i) => [l.name, i]) : [])).all();
       return Response.json(results);
     }
 
     if (url.pathname === "/api/stats") {
-      // みんなの記録（D1から集計）
+      // みんなの記録（D1から集計）。文章は出さないので、一覧に出さない投稿も数に入れる
       const secretNames = LEVELS.filter((l) => l.secret).map((l) => l.name);
       const row = await env.DB.prepare(
         "SELECT COUNT(*) AS posts, MAX(score) AS best, SUM(CASE WHEN level IN (" + secretNames.map(() => "?").join(",") + ") THEN 1 ELSE 0 END) AS secrets FROM buzzes"

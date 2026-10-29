@@ -2,8 +2,10 @@
 import { SELF, env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 import worker, { simulateBuzz, score, superLikes } from "../src/index.js";
-import { LEVELS, BASE_COMMENTS, LEVEL_REPLIES, THEME_COMMENTS, THEME_REPLIES } from "../src/data.js";
+import { LEVELS, BASE_COMMENTS, LEVEL_REPLIES, THEME_COMMENTS, THEME_REPLIES, isUnlisted } from "../src/data.js";
 
+// 本番の D1 と同じ形（unlisted は後から ALTER TABLE で足した列）
+const CREATE_TABLE = "CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT, unlisted INTEGER NOT NULL DEFAULT 0)";
 const OPENER = { roast: "は？", cold: "あー……", warm: "ほう……", good: "おお！", praise: "ちょっと待って" };
 
 describe("段階", () => {
@@ -174,7 +176,7 @@ describe("API", () => {
 	});
 
 	it("ランキングはバズ力順（?by=score）といいね数順で並びが変わる", async () => {
-		await env.DB.exec("CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT)");
+		await env.DB.exec(CREATE_TABLE);
 		await env.DB.batch([
 			env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets) VALUES (?, ?, ?, ?, ?, ?)").bind("点が高い", "地球", "🌍", 75, 100, 10),
 			env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets) VALUES (?, ?, ?, ?, ?, ?)").bind("いいねが多い", "県", "🏯", 45, 999999, 10),
@@ -186,7 +188,7 @@ describe("API", () => {
 	});
 
 	it("京から上の大きないいね数も保存でき、いいね数ランキングで正しく並ぶ", async () => {
-		await env.DB.exec("CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT)");
+		await env.DB.exec(CREATE_TABLE);
 		const rows = [["兆", 9e15], ["京", 3.4e16], ["垓", 5e20], ["無量大数", 1e68], ["ふつう", 999999]];
 		await env.DB.batch(rows.map(([text, likes]) =>
 			env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets) VALUES (?, ?, ?, ?, ?, ?)").bind(text, "神", "⛩️", 99, likes, Math.floor(likes * 0.2))));
@@ -239,7 +241,7 @@ describe("連投の制限", () => {
 	const saved = async () => (await env.DB.prepare("SELECT COUNT(*) AS n FROM buzzes WHERE text = '連投テスト'").first()).n;
 
 	it("同じ IP から速く連投すると 429 になり、保存もされない。ほかの IP は投稿できる", async () => {
-		await env.DB.exec("CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT)");
+		await env.DB.exec(CREATE_TABLE);
 		const before = await saved();
 		// Gate は直近10秒をそのまま数えるので、区切りをまたいでもちょうど4回で止まる
 		const res = [];
@@ -274,5 +276,65 @@ describe("連投の制限", () => {
 		}
 		expect(codes.slice(0, 15).every((c) => c === 403)).toBe(true);
 		expect(codes.slice(15).every((c) => c === 429)).toBe(true);
+	});
+});
+
+// 連投の制限より後に置く（ここで保存した投稿がランキングのテストに混ざらないように）
+describe("ランキングに出さない投稿（下ネタ・URL）", () => {
+	it("下ネタ・差別語・URL は引っかかる。空白や全角・半角カナでごまかしても拾う", () => {
+		const bad = ["ちんこ", "パチンちんこここ", "うんちんこうんちんこ", "おちんちん！？", "ちんぽちんぽ", "ﾁﾝｺ", "ち ん こ", "ち・ん・こ",
+			"チンコ", "おまんこ漬け", "オマンコ", "手コキして", "しょーくんの精子は緑色", "ゴムしてるよねッ!?", "nigger", "SEX",
+			"https://example.com", "ｈｔｔｐｓ：／／ｅｘａｍｐｌｅ．ｃｏｍ", "www.example.jp", "pornhub.com を見て", "nhentai"];
+		bad.forEach((t) => expect(isUnlisted(t), t).toBe(true));
+	});
+	it("ふつうのツイートは引っかからない（似た字を含む言葉も）", () => {
+		const ok = ["月曜の朝、母に「起きなさい」と言われた。\n日曜だった。", "ちんちん電車に乗った", "チンチン電車", "パチンコで負けた", "ぱちんこ玉",
+			"フェラーリかっこいい", "フェラガモの財布", "ヘアゴムしてるの忘れてた", "サラリーマンコースの説明会", "ヒューマンコメディが好き",
+			"グレイプバインのライブ", "精神的にきつい", "中出身です", "うんこ漢字ドリル", "インコはウンコしないらしいね", "漫湖公園を散歩",
+			"Essexに留学した", "sextetの演奏", "Wカップ見てた", "node.jsでアプリ作った", "ver.2.0になった", "ふとんがふっとんだ"];
+		ok.forEach((t) => expect(isUnlisted(t), t).toBe(false));
+	});
+	it("バズ神の講評とリプライ（ふつうの文章 5000個あまり）は1つも引っかからない", () => {
+		const lines = [...Object.values(BASE_COMMENTS).flat(), ...Object.values(LEVEL_REPLIES).flat().map((r) => r[2]),
+			...Object.values(THEME_COMMENTS).flatMap((o) => Object.values(o).flat()), ...Object.values(THEME_REPLIES).flatMap((o) => Object.values(o).flat().map((r) => r[2]))];
+		expect(lines.length).toBeGreaterThan(5000);
+		expect(lines.filter(isUnlisted)).toEqual([]);
+	});
+
+	const post = (text, ip) => SELF.fetch("http://example.com/api/buzz", {
+		method: "POST", headers: { "cf-connecting-ip": ip }, body: JSON.stringify({ text }),
+	}).then((r) => r.json());
+	const list = async (path) => (await (await SELF.fetch("http://example.com" + path)).json()).map((r) => r.text);
+
+	it("引っかかった投稿も採点して結果を返し、保存もするが、ランキングと最新のバズには出ない", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		const bad = await post("ちんこちんこテスト", "203.0.113.20");
+		expect(bad.unlisted).toBe(true);
+		expect(bad.score).toBe(bad.axes.empathy + bad.axes.surprise + bad.axes.fun + bad.axes.spread);
+		expect(bad.comment).toBeTruthy();
+		expect(bad.replies).toHaveLength(3);
+		const url = await post("https://example.com/テスト", "203.0.113.21");
+		expect(url.unlisted).toBe(true);
+		const good = await post("ふつうのテスト投稿です", "203.0.113.22");
+		expect(good.unlisted).toBe(false);
+		const flag = (text) => env.DB.prepare("SELECT unlisted FROM buzzes WHERE text = ?").bind(text).first("unlisted");
+		expect(await flag("ちんこちんこテスト")).toBe(1);
+		expect(await flag("ふつうのテスト投稿です")).toBe(0);
+
+		const history = await list("/api/history");
+		expect(history).toContain("ふつうのテスト投稿です");
+		expect(history).not.toContain("ちんこちんこテスト");
+		expect(history).not.toContain("https://example.com/テスト");
+	});
+	it("いいね数もバズ力もいちばん上の投稿でも、一覧に出さないものはランキングに入らない", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		const add = (text, likes, unlisted) => env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets, unlisted) VALUES (?, ?, ?, ?, ?, ?, ?)")
+			.bind(text, "真・家庭内", "🏡", 100, likes, 0, unlisted);
+		await env.DB.batch([add("隠す投稿", 9e70, 1), add("見せる投稿", 8e70, 0)]);
+		for (const path of ["/api/ranking", "/api/ranking?by=score"]) {
+			const texts = await list(path);
+			expect(texts[0], path).toBe("見せる投稿");
+			expect(texts, path).not.toContain("隠す投稿");
+		}
 	});
 });

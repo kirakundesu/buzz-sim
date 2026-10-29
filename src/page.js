@@ -612,6 +612,8 @@ export const HTML = String.raw`<!doctype html>
   .axes b { color: var(--text); font-variant-numeric: tabular-nums; }
   .minitweet { margin-top: 14px; font-size: 14px; }
   .minitweet .body { white-space: pre-wrap; word-break: break-word; margin: 6px 0 10px; font-size: 15px; }
+  .minitweet .unlisted { display: none; margin: -2px 0 10px; color: var(--sub); font-size: 13px; }
+  .minitweet .unlisted.show { display: block; }
   .metrics { display: flex; gap: 18px; color: var(--sub); flex-wrap: wrap; }
   .metrics b { color: var(--text); font-variant-numeric: tabular-nums; } .metrics .like b { color: var(--pink); }
   .replies { margin-top: 6px; }
@@ -809,6 +811,7 @@ export const HTML = String.raw`<!doctype html>
       <div class="minitweet">
         <div><span class="nm">あなた</span><span class="hd">@you ・ たった今</span></div>
         <div class="body" id="rtext"></div>
+        <div class="unlisted" id="unlistedNote">🙈 この投稿は、みんなのランキングには載せないでおくのじゃ</div>
         <div class="metrics">
           <span>💬 <b id="rrep">0</b></span><span>🔁 <b id="rrt">0</b></span><span class="like">❤️ <b id="rlike">0</b></span>
         </div>
@@ -1976,6 +1979,7 @@ async function showResult(d) {
   $("secretTag").innerHTML = look ? '<span class="secretTag end">🗺️ 地図にない場所</span>' : d.secret ? '<span class="secretTag">🔓 SECRET</span>' : "";
   obf($("lvname"), d.emoji + " " + d.level + "レベル");
   $("rtext").textContent = d.text;
+  $("unlistedNote").classList.toggle("show", !!d.unlisted);   // 下ネタ・URL はランキングに出さない（data.js の isUnlisted）
   var big = d.likes >= 1e16;
   $("rlike").textContent = likeNum(d.likes, big);
   $("rrt").textContent = likeNum(d.retweets, big);

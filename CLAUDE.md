@@ -23,6 +23,7 @@
 - `src/page.js`：画面全体（HTML/CSS/JS）を `String.raw` のテンプレート文字列で返す。BGM・効果音（`Sound`）もここ
 - `public/ogp.png`：OGP画像（1200×630）。`npm run ogp`（= `tools/make-ogp.mjs`）で作り直す。パソコンの Chrome（なければ Edge）で撮影するので、ネット接続が必要。作り直したら page.js の `ogp.png?v=数字` を1つ上げる（Xなどの古いキャッシュを避けるため）
 - `public/gods/*.png`：バズ神のアニメPNG（idle think roast cold warm good praise kami alien）。`npm run gods`（= `tools/make-gods.mjs`）で作り直す。手で編集しない
+- `tools/unlist-old.mjs`：前からある投稿に「一覧に出さない」印を付け直す（下の「ランキングに出さない投稿」）
 - `test/index.spec.js`：テスト（`npx vitest run`）
 - `wrangler.jsonc`：設定（下記）
 - `.dev.vars`：ローカル用の合言葉（`ADMIN_KEY=...`）。gitに入れない
@@ -39,7 +40,8 @@ CREATE TABLE buzzes (
   text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL,
   score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  comment TEXT  -- 後から ALTER TABLE で追加
+  comment TEXT,  -- 後から ALTER TABLE で追加
+  unlisted INTEGER NOT NULL DEFAULT 0  -- 後から ALTER TABLE で追加（2026-10-30）。1 ならランキング・履歴に出さない
 );
 CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 ```
@@ -87,6 +89,14 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
   - ローカルの dev サーバーでも効く。wrangler.jsonc を変えたら dev サーバーを起動し直す（自動では読み直さない）
 - `GET /api/ranking`：いいね数ランキング。`?by=score` でバズ力ランキング（段階が上のものから、同じ段階なら点数順）
 - `GET /api/history` `/api/ranking` `/api/stats` `/api/levels`
+- ランキングに出さない投稿（2026-10-30、公開直後に下ネタと URL がランキングに並んだのを受けて）：
+  - 下ネタ・差別語（data.js の `NG_WORDS`）と URL（`URL_RE`）を含む投稿は、ふつうに採点して結果も見せ、D1 にも保存するが、`unlisted = 1` にして `/api/ranking` と `/api/history`（＝TOP3・ランキング・最新のバズ）に出さない。`/api/stats` は文章を出さないので数に入れたまま
+  - 判定は data.js の `isUnlisted`。全角→半角・小文字にして、間の空白や記号（「ち ん こ」「ﾁﾝｺ」）も抜いて比べる。結果画面の自分のツイートの下に「🙈 この投稿は、みんなのランキングには載せないでおくのじゃ」と出る
+  - ふつうのツイートを巻き込まないように言葉は絞ってある（パチンコ・ちんちん電車・フェラーリ・ヘアゴム・漫湖・うんこ は拾わない）。言葉を足したら、テストの「ふつうのツイートは引っかからない」に似た言葉を足し、バズ神の講評とリプライ（約5000個）が1つも引っかからないことを確かめる
+  - 列にしたのは、並べ替えを D1 に任せたまま条件を1つ足すだけで済み、言葉で拾えない投稿も手で隠せるから。手で隠す・戻す：`npx wrangler d1 execute buzz-db --remote --command "UPDATE buzzes SET unlisted = 1 WHERE id = 123"`（戻すときは 0）
+  - 言葉を変えても前の投稿には付かないので、`node tools/unlist-old.mjs --remote` で対象と SQL を見て、よければ `--apply` を付けて付け直す（付けるだけで外さない）
+  - 本番の列を足す順番：① `ALTER TABLE buzzes ADD COLUMN unlisted INTEGER NOT NULL DEFAULT 0`（古いコードのままでも動く）→ ② デプロイ → ③ `node tools/unlist-old.mjs --remote --apply`。先にデプロイすると投稿が保存できなくなる
+  - ローカルの D1 も同じ列が要る（`--local` で同じ ALTER。2026-10-30 に済み）
 - `POST /api/admin/check` `/api/admin/test`：テストモード用。`ADMIN_KEY` シークレットと一致しないと403。テスト結果はD1に保存しない
 - テストモードは本番URLの末尾に `?admin` を付けて合言葉を入れると使える（本人専用）
 
@@ -127,6 +137,7 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 GitHubに buzz-sim リポジトリを作成済み。
 
 ## 2026-10-30
+⑭ 下ネタ・差別語・URL の投稿をランキングと履歴に出さない（`unlisted` 列。投稿と採点はそのまま）。
 ⑬ エンドコンテンツ3つ（無・創世・真・家庭内）・∬…の演出を点滅なしで派手に・いいね数がごくまれに京から上へ（超バズ）・連投の制限（1秒に234回のスクリプト連投を受けて）。
 ⑫ スマホ版の整え（640/1024の2段）・点滅しない演出（光過敏への配慮）・∬…到達後のトップを宇宙人に・通知の位置・バズの波を飛び飛びに＆全部見たあともシークレットが出るように。
 ⑪ OGP画像を作り直し（npm run ogp）・採点を緩めた・「バズの波」（約20回で全段階）・ランキングをバズ力といいね数に分けた・自己ベストの投稿を見られる・曲ごとの音量をそろえた。
