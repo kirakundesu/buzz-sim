@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "test": "vitest",
-    "gods": "node tools/make-gods.mjs"
+    "gods": "node tools/make-gods.mjs",
+    "ogp": "node tools/make-ogp.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.3",

@@ -21,7 +21,7 @@
   - 段階ごと（home village town pref nation asia earth solar galaxy cluster universe fourd kami glitch）：`{ comments: [100個], replies: [[名前, ID, 本文] 100個] }`
   - tone ごと（tone-roast / tone-cold / tone-warm / tone-good / tone-praise）：`{ comments: { パターン: [...] }, replies: { パターン: [[...], ...] } }`。パターン別リプライは1つをランダムに選ぶ
 - `src/page.js`：画面全体（HTML/CSS/JS）を `String.raw` のテンプレート文字列で返す。BGM・効果音（`Sound`）もここ
-- `public/ogp.png`：OGP画像（1200×630）
+- `public/ogp.png`：OGP画像（1200×630）。`npm run ogp`（= `tools/make-ogp.mjs`）で作り直す。パソコンの Chrome（なければ Edge）で撮影するので、ネット接続が必要。作り直したら page.js の `ogp.png?v=数字` を1つ上げる（Xなどの古いキャッシュを避けるため）
 - `public/gods/*.png`：バズ神のアニメPNG（idle think roast cold warm good praise kami alien）。`npm run gods`（= `tools/make-gods.mjs`）で作り直す。手で編集しない
 - `test/index.spec.js`：テスト（`npx vitest run`）
 - `wrangler.jsonc`：設定（下記）

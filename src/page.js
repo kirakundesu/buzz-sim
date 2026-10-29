@@ -6,17 +6,17 @@ export const HTML = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ツイートバズシミュレーター</title>
-<meta name="description" content="バズ神があなたのツイートを採点。家庭内から地球まで、その先にはシークレットの世界が……">
+<meta name="description" content="バズ神があなたのツイートを採点。家庭内から地球まで、全14段階。霧の向こうには、まだ何かある……">
 <meta property="og:type" content="website">
 <meta property="og:title" content="🚀 ツイートバズシミュレーター">
-<meta property="og:description" content="バズ神があなたのツイートを採点。家庭内から地球まで、その先にはシークレットの世界が……">
+<meta property="og:description" content="バズ神があなたのツイートを採点。家庭内から地球まで、全14段階。霧の向こうには、まだ何かある……">
 <meta property="og:url" content="https://buzz-sim.kira-buzz.workers.dev/">
 <meta property="og:site_name" content="ツイートバズシミュレーター">
-<meta property="og:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png">
+<meta property="og:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png">
+<meta name="twitter:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>

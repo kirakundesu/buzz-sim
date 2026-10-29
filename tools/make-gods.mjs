@@ -6,6 +6,7 @@
 import { Resvg } from "@resvg/resvg-js";
 import UPNG from "upng-js";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const N = 24;                       // 1ループのコマ数
 const W = 300, H = 330;             // 出力サイズ（viewBox 240×264 の 1.25 倍）
@@ -303,6 +304,12 @@ function render(svg) {
   return new Uint8Array(UPNG.toRGBA8(UPNG.decode(png))[0]);
 }
 
+// 1コマだけを大きく描いたふつうのPNG（OGP画像などに使う）
+export function still(mood, i, width) {
+  const m = MOODS[mood];
+  return Buffer.from(new Resvg(wrap(m.frame(i, i / N)), { fitTo: { mode: "width", value: width }, font: { loadSystemFonts: true, defaultFontFamily: "Arial" } }).render().asPng());
+}
+
 // ── グリッチ加工（宇宙人用）──
 function rgbSplit(src, d) {
   const out = new Uint8Array(src.length);
@@ -329,11 +336,13 @@ function slices(src, seed) {
   return out;
 }
 
-const preview = process.argv[2];
+// ほかのスクリプトから still() だけ使うときは、ここから下は動かさない
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const preview = isMain && process.argv[2];
 if (preview) mkdirSync(preview, { recursive: true });
-mkdirSync("public/gods", { recursive: true });
+if (isMain) mkdirSync("public/gods", { recursive: true });
 
-for (const [name, m] of Object.entries(MOODS)) {
+for (const [name, m] of isMain ? Object.entries(MOODS) : []) {
   const frames = [];
   for (let i = 0; i < N; i++) {
     let px = render(wrap(m.frame(i, i / N)));
