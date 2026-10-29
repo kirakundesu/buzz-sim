@@ -181,8 +181,10 @@ export const HTML = String.raw`<!doctype html>
   @keyframes fadein { from { opacity: 0; transform: translateY(10px); } }
   .skip { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; min-height: 40px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3); border-radius: 999px;
     padding: 6px 14px; cursor: pointer; font-size: 13px; }
-  .hud { position: absolute; left: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; display: flex; gap: 14px; font-weight: 800; font-size: clamp(14px, 2.4vw, 20px);
-    background: rgba(0,0,0,.45); border-radius: 14px; padding: 8px 14px; font-variant-numeric: tabular-nums; }
+  /* いいね数：スマホはリツイートといいねを2段に積んで、右上のスキップと重ならない幅にする。640px〜は横に並べる */
+  .hud { position: absolute; left: 12px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; display: flex; flex-direction: column; gap: 2px; font-weight: 800; font-size: 14px;
+    background: rgba(0,0,0,.45); border-radius: 14px; padding: 6px 12px; font-variant-numeric: tabular-nums; }
+  @media (min-width: 640px) { .hud { left: 16px; flex-direction: row; gap: 14px; font-size: clamp(14px, 2.4vw, 20px); padding: 8px 14px; } }
   .hud .l { color: var(--pink); }
 
   /* 審査中 */
@@ -621,8 +623,18 @@ export const HTML = String.raw`<!doctype html>
   }
   .board .empty { color: var(--sub); justify-content: center; }
 
-  .toasts { position: fixed; right: 16px; top: calc(16px + env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 8px; z-index: 70; max-width: calc(100vw - 32px); pointer-events: none; }
-  .toast { background: rgba(18,20,28,.95); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14px; animation: toast 2.6s ease forwards; }
+  /* 通知（「○○さんがいいねしました」など）
+     上の左にいいね数、右にスキップや結果画面の ✕ があるので、その下に出す
+     スマホ：横いっぱいの真ん中に、上から下りてくる。640px〜：右寄せで、右から滑り込む */
+  .toasts { position: fixed; left: 12px; right: 12px; top: calc(80px + env(safe-area-inset-top)); display: flex; flex-direction: column; align-items: center; gap: 8px;
+    z-index: 70; pointer-events: none; }
+  .toast { max-width: 100%; background: rgba(18,20,28,.95); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14px;
+    animation: toastdown 2.6s ease forwards; }
+  @keyframes toastdown { 0% { transform: translateY(-14px); opacity: 0; } 10%, 85% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+  @media (min-width: 640px) {
+    .toasts { left: auto; right: 16px; top: calc(72px + env(safe-area-inset-top)); align-items: flex-end; max-width: calc(100vw - 32px); }
+    .toast { animation-name: toast; }
+  }
   @keyframes toast { 0% { transform: translateX(120%); } 12%, 85% { transform: none; opacity: 1; } 100% { opacity: 0; } }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; } }

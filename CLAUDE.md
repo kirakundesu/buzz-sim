@@ -81,6 +81,7 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
   - スマホ（〜639px）：1列。バズマップの代わりに上の絵文字の列、ランキングと記録は入力欄の下。音量は丸いボタンだけで、押すとスライダーが開き、もう一度押すと消音
   - 640px〜：入力欄の下にバズマップと右パネルを2列。1024px〜：3列（左右の列は 24vw、230〜280px）
   - 結果画面：スマホは1列でバズ神を小さめに、上に貼りつく ✕ で閉じられる。1024px〜で2列
+  - 画面の上の決まった場所：左上＝いいね数（演出中。スマホは2段に積む）、右上＝スキップ・結果の ✕、通知（いいねしました等）はその下（スマホ80px・640px〜72px）。上に何か足すときは重ならないか確かめる
   - 押せる場所は44px以上（ボタン・タブ・✕）。入力欄の文字は16px以上（iPhone の拡大を防ぐ）。高さは dvh、端に固定するものは env(safe-area-inset-*) を足す
   - 高さで決まる崩れ（横向きスマホ）だけは max-height の @media を使い、理由をコメントに書く
   - 確認：`npx wrangler dev` を起動してから `node scripts/responsive-check.mjs http://localhost:8787`（Git Bash でも PowerShell でも同じ）。390×844 と 1280×800 でトップ・結果・ランキング・カットインを撮って responsive-shots/ に保存し、横にはみ出すと NG を出す。パソコンの Chrome（なければ Edge）を使う（playwright-core）
