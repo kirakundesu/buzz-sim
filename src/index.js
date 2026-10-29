@@ -1,8 +1,8 @@
-// ツイートバズシミュレーター（⑨ 神の段階・カットイン・BGM 付き）
+// ツイートバズシミュレーター（⑪ 採点を緩めた・ランキングをバズ力といいね数に分けた）
 // GET  /             → 画面（HTML）を返す
 // POST /api/buzz     → ツイートのパターンを読み取って採点し、講評・リプライと一緒に返してD1に保存
 // GET  /api/history  → 最新のバズ履歴
-// GET  /api/ranking  → いいね数ランキング
+// GET  /api/ranking  → いいね数ランキング（?by=score でバズ力ランキング）
 // POST /api/admin/check → 合言葉が正しいか確認（テストモード用）
 // POST /api/admin/test  → 段階を指定して演出をテスト（D1には保存しない）
 //
@@ -37,21 +37,29 @@ export function analyze(text) {
   const len = chars.length;
   const lines = text.split(/\n/).map((l) => l.trim()).filter(Boolean);
   const lastLine = lines[lines.length - 1] ?? "";
+  const sentences = text.split(/[。！？!?\n]+/).map((s) => s.trim()).filter(Boolean);
   const themes = Object.keys(THEMES).filter((k) => THEMES[k].re.test(text));
   const emojiCount = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
   return {
     len,
     lines: lines.length,
     themes,
-    dialogue: (text.match(/「[^」]+」/g) || []).length,
+    dialogue: (text.match(/「[^」]+」|『[^』]+』/g) || []).length,
+    // オチ：短い最後の行、短い最後の一文（質問で終わるものは除く）、オチっぽい言い回し
     ochi: (lines.length >= 2 && Array.from(lastLine).length <= 18) ||
-      /……|…|そういうとこ|知らんけど|と思ったら|かと思いきや|まさか|なお、|結果、|からです|だからです/.test(text),
-    twist: /まさか|実は|と思ったら|かと思いきや|なのに|のに、|だからです|逆に/.test(text),
+      (sentences.length >= 2 && Array.from(sentences[sentences.length - 1]).length <= 8 && !/[？?]\s*$/.test(text)) ||
+      /……|…|そういうとこ|知らんけど|と思ったら|かと思いきや|まさか|なお、|ちなみに|結果、|結果は|からです|だからです|正解は|オチ|だった。?$|でした。?$|じゃなかった|ではなかった|てた。?$/.test(text),
+    twist: /まさか|実は|と思ったら|かと思いきや|と見せかけて|かと思えば|と思ってた|だと思ってた|はずが|はずだった|なのに|のに、|ではなく|じゃなくて|けど|しかし|逆に|だからです/.test(text),
+    aru: /あるある|しがち|つい|いつも|毎回|毎朝|毎日|毎晩|結局|なぜか|みんな|わかる|気づいたら|気付いたら|いつの間にか|これ私|自分だけ/.test(text),
+    emo: /嬉し|うれし|悲し|泣|笑|つら|辛い|しんど|最高|無理|尊い|草|ｗ|w{2,}|好き|嫌い|怖|ヤバ|やば|疲れ|眠|腹立|ムカ|感動|幸せ|寂し|ウケ|楽しみ|かわいい|可愛い/.test(text),
+    hyper: /一生|永遠|世界一|宇宙一|人類|全人類|全部|全員|絶対|死ぬほど|秒で|過去一|人生で一番|\d{3,}|百回|千回|万回|すぎ/.test(text),
+    // ダジャレ：同じ2文字以上のかな（またはカナ）が2回出てくる（「ふとんがふっとんだ」など）
+    wordplay: /(\p{sc=Hiragana}{2,}|\p{sc=Katakana}{2,}).*?\1/u.test(text.replace(/(.)\1+/gu, "$1")),
     laugh: /草|笑|ｗ|w{2,}/i.test(text),
-    participation: /人が勝ち|選手権|教えて|みんな|あるある|どっち|派？|派\?|わかる人/.test(text),
+    participation: /人が勝ち|選手権|教えて|みんな|あるある|どっち|派？|派\?|わかる人|なに派|何派|いる？|いますか/.test(text),
     question: /[？?]/.test(text),
     exclaim: /[！!]/.test(text),
-    numbers: /\d|[一二三四五六七八九十百千万]+(円|回|歳|時間|分|年)/.test(text),
+    numbers: /\d|[一二三四五六七八九十百千万]+(円|回|歳|時間|分|年|日|個|人|杯)/.test(text),
     hashtags: (text.match(/[#＃]\S+/g) || []).length,
     emojiCount,
     onlyEmoji: emojiCount > 0 && text.replace(/\p{Extended_Pictographic}|\s|️|‍/gu, "") === "",
@@ -61,31 +69,42 @@ export function analyze(text) {
 }
 
 // ── 4つの観点（各25点）で採点する ──
+// 目安：ふつうの一文で町、あるあるネタで県、工夫（数字・感情・問いかけ）で全国、
+// オチ・会話・裏切りのどれかでアジア、2つそろうと地球。シークレットは全部そろってやっと届く
 export function score(text) {
   const f = analyze(text);
-  const t = f.themes.length;
+  const t = Math.min(f.themes.length, 3);
+  const self = f.themes.includes("self");
+  // 長さ：短すぎず長すぎず（0〜4）
+  const L = f.len < 3 ? 0 : f.len < 6 ? 1 : f.len < 10 ? 2 : f.len < 18 ? 3 : f.len <= 100 ? 4 : f.len <= 125 ? 3 : 2;
 
-  let empathy = 4 + Math.min(t, 3) * 5 + (f.themes.includes("self") ? 3 : 0) +
-    (f.themes.includes("sleep") || f.themes.includes("work") ? 2 : 0) + (f.question ? 1 : 0) + (f.participation ? 5 : 0);
-  let surprise = 3 + (f.ochi ? 8 : 0) + (f.twist ? 6 : 0) + (f.numbers ? 2 : 0) +
-    (f.lines >= 3 ? 3 : 0) + (f.dialogue ? 2 : 0);
-  let fun = 3 + (f.dialogue ? Math.min(f.dialogue, 3) * 4 : 0) + (f.ochi ? 5 : 0) + (f.laugh ? 3 : 0) +
-    (f.themes.includes("self") ? 2 : 0) + (f.emojiCount >= 1 && f.emojiCount <= 3 ? 2 : 0) + (f.exclaim ? 1 : 0);
-  let spread = f.len < 6 ? 1 : f.len < 15 ? 7 : f.len <= 80 ? 14 : f.len <= 115 ? 11 : 7;
-  spread += (f.participation ? 7 : 0) + (f.hashtags >= 1 && f.hashtags <= 2 ? 2 : 0) +
-    (f.hashtags >= 4 ? -5 : 0) + (f.ochi ? 2 : 0);
+  let empathy = 4 + [0, 2, 4.5, 6, 6.4][L] + t * 3.5 + (f.aru ? 4 : 0) + (f.emo ? 3 : 0) + (self ? 2 : 0) + (f.question ? 1 : 0) + (f.participation ? 4 : 0);
+  let surprise = 4 + L * 1.2 + (f.ochi ? 6 : 0) + (f.twist ? 5 : 0) + (f.numbers ? 2 : 0) + (f.hyper ? 2 : 0) +
+    (f.lines >= 2 ? 2 : 0) + (f.lines >= 3 ? 1 : 0) + (f.dialogue ? 2 : 0) + (f.wordplay ? 3 : 0);
+  let fun = 4 + L * 1.2 + Math.min(f.dialogue, 3) * 3 + (f.ochi ? 4 : 0) + (f.laugh ? 3 : 0) + (f.wordplay ? 6 : 0) +
+    (f.exclaim ? 2 : 0) + (f.emojiCount >= 1 && f.emojiCount <= 3 ? 2 : 0) + (self ? 2 : 0) + (f.hyper ? 2 : 0);
+  let spread = [0, 5, 10, 12, 14, 12, 9][L + (f.len > 125 ? 2 : f.len > 100 ? 1 : 0)] +
+    (f.participation ? 5 : 0) + (f.hashtags >= 1 && f.hashtags <= 2 ? 2 : 0) + (f.hashtags >= 4 ? -5 : 0) +
+    (f.ochi ? 2 : 0) + (f.aru ? 2 : 0) + (t >= 1 ? 2 : 0);
 
-  // オチ × 会話や裏切り × あるある、がそろったら大きく加点（ここが宇宙への道）
-  if (f.ochi && (f.dialogue >= 2 || f.twist) && t >= 1) { surprise += 5; fun += 4; empathy += 3; spread += 3; }
+  // コンボ：オチ ×（会話 か 裏切り）× あるある。3つ全部ならもう少し
+  const relatable = t >= 1 || f.aru;
+  if (f.ochi && (f.dialogue || f.twist) && relatable) { empathy += 2; surprise += 2; fun += 2; spread += 2; }
+  if (f.ochi && f.dialogue && f.twist && relatable) { empathy += 1; surprise += 1; fun += 1; spread += 1; }
 
-  // 減点
+  // 減点（2文字以下で、話題も感情もないものは「中身なし」）
+  if (f.len < 3 && !t && !f.emo) { empathy -= 2; surprise -= 2; fun -= 2; spread -= 2; }
   if (f.toxic) { empathy -= 8; fun -= 5; spread -= 4; }
   if (f.spam) { empathy -= 6; surprise -= 4; fun -= 4; spread -= 6; }
   if (f.onlyEmoji) { empathy -= 4; surprise -= 2; spread -= 4; }
 
+  // 上のほうは伸びにくくする（シークレットはなかなか出ないように）
+  const soft = (x) => (x > 17 ? 17 + (x - 17) * 0.45 : x);
+  empathy = soft(empathy); surprise = soft(surprise); fun = soft(fun); spread = soft(spread);
+
   // 文章ごとの個性（同じ文章ならいつも同じ）＋ ちょっとした運
   const seeded = seededRandom(hashOf(text));
-  const jitter = () => Math.floor(seeded() * 7) - 3 + Math.floor(Math.random() * 5) - 2;
+  const jitter = () => Math.floor(seeded() * 5) - 2 + Math.floor(Math.random() * 3) - 1;
   const axes = {
     empathy: clamp(empathy + jitter(), 0, 25),
     surprise: clamp(surprise + jitter(), 0, 25),
@@ -109,8 +128,36 @@ function randomBetween(min, max) {
   return Math.floor(min + Math.random() * (max - min));
 }
 
-export function simulateBuzz(text, forceIndex) {
+// ── 「バズの波」──
+// まだ見ていない段階が上にあるうちは、ときどき投稿をそこまで押し上げる（投稿するほど起きやすく、遠くまで届く）
+// ふつうに投稿を続けると、20回ほどで14段階ぜんぶの演出が見られるくらいに調整してある
+// 全部見終わったら波は起きず、点数どおりの段階になる
+const WAVE = { chance: 0.65, perPost: 0.02, maxChance: 0.9, jump: 4, jumpEvery: 3 };
+export function waveTarget(index, luck) {
+  if (!luck) return null;
+  const seen = new Set(luck.seen);
+  if (!seen.has(index)) return null;   // 今の段階がまだ見たことのない段階なら、波がなくても新しい
+  if (Math.random() >= Math.min(WAVE.maxChance, WAVE.chance + luck.posts * WAVE.perPost)) return null;
+  const maxJump = WAVE.jump + Math.floor(luck.posts / WAVE.jumpEvery);
+  for (let i = index + 1; i < LEVELS.length && i <= index + maxJump; i++) if (!seen.has(i)) return i;
+  return null;
+}
+// 4つの観点の比率はそのままで、合計だけ total に合わせる（各25点まで）
+function fitAxes(axes, total) {
+  const keys = Object.keys(axes), sum = (o) => keys.reduce((s, k) => s + o[k], 0);
+  const base = sum(axes) || 1, out = {};
+  keys.forEach((k) => { out[k] = clamp((axes[k] || 1) * total / base, 0, 25); });
+  for (let diff = total - sum(out), k = 0; diff !== 0; k = (k + 1) % keys.length) {
+    const key = keys[k];
+    if (diff > 0 && out[key] < 25) { out[key]++; diff--; } else if (diff < 0 && out[key] > 0) { out[key]--; diff++; }
+  }
+  return out;
+}
+
+// luck：{ seen: このブラウザで見たことのある段階の番号, posts: これまでの投稿回数 }（「バズの波」用。なくてもよい）
+export function simulateBuzz(text, forceIndex, luck) {
   let { axes, total, features } = score(text);
+  let wave = false;
   // テストモード：指定した段階になるように点数を合わせる
   if (forceIndex != null) {
     const lv = LEVELS[forceIndex];
@@ -118,6 +165,14 @@ export function simulateBuzz(text, forceIndex) {
     total = next ? Math.floor((lv.minScore + next.minScore - 1) / 2) : 100;
     const q = Math.floor(total / 4);
     axes = { empathy: q, surprise: q, fun: q, spread: total - q * 3 };
+  } else {
+    const target = waveTarget(LEVELS.findLastIndex((l) => total >= l.minScore), luck);
+    if (target != null) {
+      const next = LEVELS[target + 1];
+      total = next ? randomBetween(LEVELS[target].minScore, next.minScore) : 100;
+      axes = fitAxes(axes, total);
+      wave = true;
+    }
   }
   const index = LEVELS.findLastIndex((l) => total >= l.minScore);
   const level = LEVELS[index];
@@ -139,6 +194,7 @@ export function simulateBuzz(text, forceIndex) {
     pattern: THEMES[pattern]?.label ?? PATTERN_LABELS[pattern],
     score: total,
     axes,
+    wave,
     comment,
     replies,
     likes,
@@ -156,7 +212,11 @@ export default {
       if (!text) {
         return Response.json({ error: "ツイートを入力してください" }, { status: 400 });
       }
-      const result = simulateBuzz(text);
+      // 「バズの波」用：見たことのある段階（0〜13 の番号）と投稿回数。おかしな値は捨てる
+      const seen = Array.isArray(body.seen)
+        ? [...new Set(body.seen.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < LEVELS.length))] : [];
+      const posts = Math.max(0, Math.min(10000, Math.floor(Number(body.posts) || 0)));
+      const result = simulateBuzz(text, null, { seen, posts });
       // D1に保存（env.DB は wrangler.jsonc の binding 名）
       await env.DB.prepare(
         "INSERT INTO buzzes (text, level, emoji, score, likes, retweets, comment) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -188,9 +248,13 @@ export default {
     }
 
     if (url.pathname === "/api/ranking") {
-      const { results } = await env.DB.prepare(
-        "SELECT text, level, emoji, score, likes FROM buzzes ORDER BY likes DESC LIMIT 10"
-      ).all();
+      // ?by=score でバズ力ランキング（段階が上のものから、同じ段階なら点数順）、それ以外はいいね数ランキング
+      const byScore = url.searchParams.get("by") === "score";
+      const order = byScore
+        ? "CASE level " + LEVELS.map(() => "WHEN ? THEN ?").join(" ") + " ELSE -1 END DESC, score DESC, likes DESC"
+        : "likes DESC";
+      const { results } = await env.DB.prepare("SELECT text, level, emoji, score, likes FROM buzzes ORDER BY " + order + " LIMIT 10")
+        .bind(...(byScore ? LEVELS.flatMap((l, i) => [l.name, i]) : [])).all();
       return Response.json(results);
     }
 

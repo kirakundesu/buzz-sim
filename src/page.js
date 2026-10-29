@@ -40,7 +40,8 @@ export const HTML = String.raw`<!doctype html>
   .side { display: none; }
   @media (min-width: 1100px) {
     .layout { grid-template-columns: 280px minmax(0, 600px) 280px; justify-content: center; }
-    .side { display: block; position: sticky; top: 24px; align-self: start; }
+    .side { display: block; position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: thin; }
+    .side:last-child { padding-bottom: 56px; }   /* 右下の音量ボタンに隠れないように */
     .mapstrip { display: none !important; }
   }
   .panel { background: rgba(18,20,28,.85); border: 1px solid var(--line); border-radius: 18px; padding: 16px; backdrop-filter: blur(6px); }
@@ -71,6 +72,17 @@ export const HTML = String.raw`<!doctype html>
   .top3 .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .top3 .s { color: var(--sub); white-space: nowrap; }
   .top3 .empty { color: var(--sub); }
+  .minitabs { display: flex; gap: 4px; }
+  .minitabs button { border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .minitabs button.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
+  /* 自己ベストの投稿（PCは右の記録パネル、スマホは入力欄の下）*/
+  .bestpost { margin-top: 10px; background: var(--panel2); border: 1px solid #a16207; border-radius: 12px; padding: 10px 12px; display: none; }
+  .bestpost.show { display: block; }
+  .bestpost small { color: #fde68a; font-size: 11px; font-weight: 800; }
+  .bestpost .bp-text { margin: 4px 0 6px; font-size: 14px; white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .bestpost .bp-meta { color: var(--sub); font-size: 12px; margin-bottom: 8px; }
+  .bestcard { margin-top: 16px; }
+  @media (min-width: 1100px) { .bestcard { display: none !important; } }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
   .stat small { display: block; color: var(--sub); font-size: 11px; }
@@ -507,7 +519,8 @@ export const HTML = String.raw`<!doctype html>
   .modal { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
     animation: popin .3s ease both; overflow: hidden; }
   .modal header { display: flex; align-items: center; gap: 8px; padding: 14px; border-bottom: 1px solid var(--line); }
-  .tab { flex: 1; text-align: center; padding: 9px; border-radius: 12px; cursor: pointer; color: var(--sub); font-weight: 800; border: 1px solid var(--line); background: transparent; }
+  .tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 12px; cursor: pointer; color: var(--sub); font-weight: 800; border: 1px solid var(--line); background: transparent; white-space: nowrap; }
+  @media (max-width: 480px) { .tab { font-size: 13px; } .modal header { gap: 6px; padding: 12px 10px; } }
   .tab.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
   .close { background: none; border: 0; font-size: 22px; cursor: pointer; padding: 4px 8px; color: var(--sub); }
   .board { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
@@ -557,6 +570,7 @@ export const HTML = String.raw`<!doctype html>
     <button class="boardbtn" id="openBoard">🏆 みんなのランキング・最新のバズを見る <small id="postsCount"></small></button>
     <p class="hint">家庭内 → 村 → 町 → 県 → 全国 → アジア → 地球 → ？？？</p>
     <div class="card last" id="last"></div>
+    <div class="bestpost bestcard" id="bestPostMobile"></div>
   </main>
 
   <!-- 右：トレンドと通知 -->
@@ -565,7 +579,7 @@ export const HTML = String.raw`<!doctype html>
       <div class="mini-god"><div id="miniGod"></div><div class="tip" id="tip"></div></div>
     </div>
     <div class="panel" style="margin-bottom:16px">
-      <h3>🏆 ランキング TOP3</h3>
+      <h3>🏆 ランキング <span class="minitabs" id="top3Tabs"><button class="on" data-by="score">バズ力</button><button data-by="likes">いいね</button></span></h3>
       <ol class="top3" id="top3"></ol>
       <button class="btn sub wide" id="openBoard2">すべて見る</button>
     </div>
@@ -577,6 +591,7 @@ export const HTML = String.raw`<!doctype html>
         <div class="stat"><small>最高到達</small><b id="myTop" style="font-size:15px">-</b></div>
         <div class="stat"><small>シークレット</small><b id="mySecret">0 / 7</b></div>
       </div>
+      <div class="bestpost" id="bestPost"></div>
     </div>
   </aside>
 </div>
@@ -633,8 +648,9 @@ export const HTML = String.raw`<!doctype html>
 <div class="overlay" id="boardModal">
   <div class="modal" role="dialog" aria-label="ランキング">
     <header>
-      <button class="tab on" data-tab="ranking">🏆 ランキング</button>
-      <button class="tab" data-tab="history">🕒 最新のバズ</button>
+      <button class="tab on" data-tab="score">💥 バズ力</button>
+      <button class="tab" data-tab="likes">❤️ いいね数</button>
+      <button class="tab" data-tab="history">🕒 最新</button>
       <button class="close" id="closeBoard" aria-label="閉じる">✕</button>
     </header>
     <ol class="board" id="board"></ol>
@@ -730,6 +746,15 @@ function putScore(el, score, idx) {
   el.classList.toggle("flick", idx === FOURD);
   return obf(el, scoreText(score, idx));
 }
+// 大きな数を「万・億・兆」で短くする（せまい場所用）
+function compactNum(n) {
+  n = Number(n);
+  var units = [[1e12, "兆"], [1e8, "億"], [1e4, "万"]];
+  for (var i = 0; i < units.length; i++) {
+    if (n >= units[i][0]) { var v = n / units[i][0]; return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + units[i][1]; }
+  }
+  return n.toLocaleString();
+}
 // 点数＋うしろの文字（「点」など）。点数の部分だけチラついたり化けたりする
 function scoreSpan(item, suffix) {
   var w = document.createElement("span"), s = document.createElement("span");
@@ -782,8 +807,9 @@ var Sound = (function () {
     var nd = noiseBuf.getChannelData(0); for (var k = 0; k < nd.length; k++) nd[k] = Math.random() * 2 - 1;
     cur = null;
   }
-  function newMoodBus() {
-    var b = { g: ctx.createGain(), v: ctx.createGain(), e: ctx.createGain() };
+  function newMoodBus(name) {
+    var b = { g: ctx.createGain(), v: ctx.createGain(), e: ctx.createGain() }, k = MOOD_GAIN[name] || 1;
+    [b.g, b.v, b.e].forEach(function (g) { g.gain.value = k; });
     b.g.connect(musicBus); b.v.connect(verb); b.e.connect(echo);
     return b;
   }
@@ -1068,6 +1094,9 @@ var Sound = (function () {
     } }
   };
 
+  // 曲ごとの音量の補正（測った大きさをそろえる。トップページの曲は、講評中の曲より少し控えめ）
+  var MOOD_GAIN = { idle: 0.7, secret: 0.9, roast: 1.7, cold: 1.2, warm: 1.65, tame: 1.1, earth: 1.05, glitch: 1.3 };
+
   // ── 効果音 ──
   var SFX = {
     blip: function (t, i) {
@@ -1115,7 +1144,7 @@ var Sound = (function () {
       [old.g, old.v, old.e].forEach(function (g) { g.gain.setTargetAtTime(0, now, 0.12); });
       setTimeout(function () { [old.g, old.v, old.e].forEach(function (g) { g.disconnect(); }); }, 3000);
     }
-    cur = newMoodBus();
+    cur = newMoodBus(name);
     nextTime = now + 0.06;
   }
   // 少し先までの音を予約していく
@@ -1163,7 +1192,7 @@ var Sound = (function () {
     measure: async function (kind, name, secs) {
       var keep = [ctx, master, musicBus, sfxBus, verb, echo, noiseBuf, cur];
       var off = new OfflineAudioContext(2, 44100 * secs, 44100);
-      build(off); cur = newMoodBus();
+      build(off); cur = newMoodBus(kind === "mood" ? name : "");
       if (kind === "mood") {
         var m = MOODS[name], tt = 0.05, n = 0;
         while (tt < secs - 1.5) { var sd = 60 / m.bpm / 4; if (m.swing) sd *= n % 2 ? 1 - m.swing : 1 + m.swing; m.play(n, tt, sd); tt += sd; n++; }
@@ -1222,6 +1251,25 @@ function renderMyStats() {
   if (top < 0) $("myTop").textContent = "-";
   else obf($("myTop"), LV[top].emoji + " " + (LV[top].name.length > 6 ? LV[top].name.slice(0, 6) + "…" : LV[top].name));
   $("mySecret").textContent = secretCount();
+  renderBestPost();
+}
+
+// 自己ベストの投稿（結果まるごと。このブラウザだけに保存）
+function loadBestPost() { try { return JSON.parse(localStorage.getItem("buzz_best_post") || "null"); } catch (e) { return null; } }
+function saveBestPost(d) { try { localStorage.setItem("buzz_best_post", JSON.stringify(d)); } catch (e) {} }
+function renderBestPost() {
+  var bp = loadBestPost();
+  ["bestPost", "bestPostMobile"].forEach(function (id) {
+    var el = $(id); el.innerHTML = ""; el.classList.toggle("show", !!bp);
+    if (!bp) return;
+    var h = document.createElement("small"); h.textContent = "🏅 自己ベストの投稿";
+    var t = document.createElement("div"); t.className = "bp-text"; t.textContent = bp.text;
+    var m = document.createElement("div"); m.className = "bp-meta";
+    m.append(obf(document.createElement("span"), bp.emoji + " " + bp.level + "レベル ・ "), scoreSpan(bp, "点"), " ・ ❤️ " + compactNum(bp.likes));
+    var b = document.createElement("button"); b.className = "btn sub wide"; b.textContent = "この結果をもう一度見る";
+    b.addEventListener("click", function () { Sound.init(); Sound.mood(Sound.forLevel(bp.levelIndex)); showResult(bp); });
+    el.append(h, t, m, b);
+  });
 }
 
 function renderMap(nowIndex) {
@@ -1497,7 +1545,7 @@ var WHO = { roast: "😡 バズ神の講評（激辛）", cold: "😐 バズ神�
 var WHO_KAMI = "⛩️ バズ神の講評（ひれ伏し）", WHO_ALIEN = "👁️ ∃ズ神の講∬（解読不能）";
 var SYMS = Array.from("∬∃▽◇◎＄￡※⊆〒");
 var TAGS = { 6: ["MAX", "max"], 7: ["OVER!", ""], 8: ["OVER!!", ""], 9: ["OVER!!!", ""], 10: ["LIMIT BREAK", "blink"], 11: ["時空のゆがみ", "blink"], 12: ["神域", "max"], 13: ["∃RR0R", "blink"] };
-var lastResult = null;
+var lastResult = null, shownResult = null;   // shownResult：いま結果画面に出している結果（自己ベストを開いたときはそれ）
 
 function randSyms(n) { var s = ""; for (var i = 0; i < n; i++) s += pickOne(SYMS); return s; }
 
@@ -1568,6 +1616,7 @@ async function morphGod(g, pattern) {
 
 async function showResult(d) {
   var res = $("result"), idx = d.levelIndex, pattern = d.pattern ? "　#" + d.pattern : "", run = ++resultRun;
+  shownResult = d;
   res.classList.add("show"); res.scrollTop = 0;
   document.body.style.overflow = "hidden";
   var g = godImg(idx === KAMI ? "kami" : idx === GLITCH ? "praise" : d.tone);
@@ -1634,7 +1683,11 @@ postBtn.addEventListener("click", async function () {
   cinema.classList.add("show"); document.body.style.overflow = "hidden";
 
   var started = Date.now();
-  var data = await fetch("/api/buzz", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: text }) })
+  // 「バズの波」用に、見たことのある段階（上昇演出で通るふつうの段階＋届いたシークレット）と投稿回数も送る
+  var seenAll = loadUnlocked().slice();
+  for (var si = 0; si <= Math.min(loadBest(), EARTH); si++) seenAll.push(si);
+  var req = { text: text, seen: seenAll, posts: loadStats().posts };
+  var data = await fetch("/api/buzz", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req) })
     .then(function (r) { return r.json(); }).catch(function () { return { error: "通信に失敗しました。もう一度試してください" }; });
   await sleep(Math.max(0, 1600 - (Date.now() - started)));
   if (data.error) { cinema.classList.remove("show"); document.body.style.overflow = ""; toast("⚠️ " + data.error); postBtn.disabled = false; Sound.mood("idle"); return; }
@@ -1642,7 +1695,9 @@ postBtn.addEventListener("click", async function () {
 
   // シークレット解放と自己ベストの記録
   var prevBest = loadBest(), seen = loadUnlocked();
-  var st = loadStats(); st.posts += 1; if (st.best == null || data.score > st.best) st.best = data.score; saveStats(st);
+  var st = loadStats(); st.posts += 1;
+  if (st.best == null || data.score > st.best) { st.best = data.score; saveBestPost(data); }
+  saveStats(st);
   if (data.secret) {
     var u = loadUnlocked();
     if (u.indexOf(data.levelIndex) < 0) { u.push(data.levelIndex); saveUnlocked(u); setTimeout(function () { toast("🔓 シークレット「" + data.level + "」を解放！"); }, 400); }
@@ -1651,6 +1706,7 @@ postBtn.addEventListener("click", async function () {
   }
   if (data.levelIndex > prevBest) saveBest(data.levelIndex);
 
+  if (data.wave) setTimeout(function () { toast("🌊 バズの波に乗った！ いつもより遠くまで届きそうじゃ……"); }, 300);
   await playCinema(data, seen);
   renderMap(data.levelIndex);
   renderMyStats(); loadTop3();
@@ -1659,8 +1715,8 @@ postBtn.addEventListener("click", async function () {
 });
 
 $("share").addEventListener("click", function () {
-  if (!lastResult) return;
-  var d = lastResult;
+  var d = shownResult || lastResult;
+  if (!d) return;
   var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + d.level + "レベルのバズ！ ❤️ " + d.likes.toLocaleString() + " #ツイートバズシミュレーター";
   window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(location.origin + "/"), "_blank");
 });
@@ -1671,7 +1727,9 @@ $("again").addEventListener("click", function () {
 });
 
 // ── ランキング（ボタンを押したときだけ表示）──
-var currentTab = "ranking";
+// タブ：score＝バズ力ランキング / likes＝いいね数ランキング / history＝最新のバズ
+var currentTab = "score";
+var BOARD_URL = { score: "/api/ranking?by=score", likes: "/api/ranking", history: "/api/history" };
 function openBoard() { $("boardModal").classList.add("show"); loadBoard(); }
 function closeBoard() { $("boardModal").classList.remove("show"); }
 $("openBoard").addEventListener("click", openBoard);
@@ -1690,24 +1748,39 @@ document.querySelectorAll(".tab").forEach(function (t) {
 });
 async function loadBoard() {
   var board = $("board"); board.innerHTML = "";
-  var items = await fetch("/api/" + currentTab).then(function (r) { return r.json(); }).catch(function () { return []; });
+  var tab = currentTab;
+  var items = await fetch(BOARD_URL[tab]).then(function (r) { return r.json(); }).catch(function () { return []; });
+  if (tab !== currentTab) return;   // 読み込み中に別のタブを押されたら、古い結果は捨てる
   if (!items.length) { var e = document.createElement("li"); e.className = "empty"; e.textContent = "まだ投稿がありません。一番乗りしよう！"; board.append(e); return; }
   var medals = ["🥇", "🥈", "🥉"];
   items.forEach(function (item, i) {
     var li = document.createElement("li"); li.style.animationDelay = i * 0.03 + "s";
     var rank = document.createElement("span"); rank.className = "rank";
-    rank.textContent = currentTab === "ranking" ? (medals[i] || String(i + 1)) : item.emoji;
+    rank.textContent = tab === "history" ? item.emoji : medals[i] || String(i + 1);
     var txt = document.createElement("span"); txt.className = "txt"; txt.textContent = item.text;
     var meta = document.createElement("span"); meta.className = "meta";
-    if (currentTab === "ranking") meta.append(item.emoji + " ");
-    if (item.score != null) meta.append(scoreSpan(item, "点 ・ "));
-    meta.append("❤️ " + Number(item.likes).toLocaleString());
+    var likes = "❤️ " + Number(item.likes).toLocaleString();
+    if (tab !== "history") meta.append(item.emoji + " ");
+    // 並べている数字を先に出す
+    if (tab === "likes") meta.append(likes, " ・ ", scoreSpan(item, "点"));
+    else meta.append(scoreSpan(item, "点 ・ "), likes);
     li.append(rank, txt, meta); board.append(li);
   });
 }
 
+// 右のTOP3：バズ力といいね数を切り替えられる
+var top3By = "score";
+document.querySelectorAll("#top3Tabs button").forEach(function (b) {
+  b.addEventListener("click", function () {
+    top3By = b.dataset.by;
+    document.querySelectorAll("#top3Tabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
+    loadTop3();
+  });
+});
 async function loadTop3() {
-  var items = await fetch("/api/ranking").then(function (r) { return r.json(); }).catch(function () { return []; });
+  var by = top3By;
+  var items = await fetch(by === "score" ? "/api/ranking?by=score" : "/api/ranking").then(function (r) { return r.json(); }).catch(function () { return []; });
+  if (by !== top3By) return;
   var ol = $("top3"); ol.innerHTML = "";
   if (!items.length) { var e = document.createElement("li"); e.className = "empty"; e.textContent = "まだ投稿がありません"; ol.append(e); }
   var medals = ["🥇", "🥈", "🥉"];
@@ -1715,7 +1788,8 @@ async function loadTop3() {
     var li = document.createElement("li");
     var m = document.createElement("span"); m.textContent = medals[i];
     var t = document.createElement("span"); t.className = "t"; t.textContent = item.text;
-    var s = document.createElement("span"); s.className = "s"; s.append(item.emoji + " ", scoreSpan(item, "点"));
+    var s = document.createElement("span"); s.className = "s"; s.append(item.emoji + " ");
+    if (by === "score") s.append(scoreSpan(item, "点")); else s.append("❤️ " + compactNum(item.likes));
     li.append(m, t, s); ol.append(li);
   });
   var stats = await fetch("/api/stats").then(function (r) { return r.json(); }).catch(function () { return null; });
