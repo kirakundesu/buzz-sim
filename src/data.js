@@ -1,8 +1,9 @@
 // バズの段階・講評・リプライのデータ集
 // 文章を足したり変えたりするときは、このファイルだけ触ればOK
 
-// ── 13段階（通常7 + シークレット6）──
+// ── 14段階（通常7 + シークレット7）──
 // minScore 以上でその段階。tone は バズ神のキャラ（roast=毒舌 / cold=塩 / praise=絶賛）
+// hidden: シークレットの中のシークレット。一度届くまでバズマップにも /api/levels にも出さない
 export const LEVELS = [
   { name: "家庭内", emoji: "🏠", minScore: 0,  likes: [0, 6],                     tone: "roast" },
   { name: "村",     emoji: "🌾", minScore: 14, likes: [6, 300],                   tone: "roast" },
@@ -15,9 +16,10 @@ export const LEVELS = [
   { name: "太陽系", emoji: "☀️", minScore: 77, likes: [2e7, 1e8],   tone: "praise", secret: true },
   { name: "銀河",   emoji: "🌌", minScore: 83, likes: [1e8, 1e9],   tone: "praise", secret: true },
   { name: "銀河団", emoji: "✨", minScore: 88, likes: [1e9, 1e10],  tone: "praise", secret: true },
-  { name: "宇宙",   emoji: "🌠", minScore: 92, likes: [1e10, 1e11], tone: "praise", secret: true },
-  { name: "四次元", emoji: "🌀", minScore: 96, likes: [1e11, 1e13], tone: "praise", secret: true },
-  { name: "∬∃@▽◇◎＄￡※⊆〒^^", emoji: "👁️", minScore: 99, likes: [1e15, 9e15], tone: "praise", secret: true },
+  { name: "宇宙",   emoji: "🌠", minScore: 92, likes: [1e10, 1e11], tone: "praise", secret: true, hidden: true },
+  { name: "四次元", emoji: "🌀", minScore: 96, likes: [1e11, 1e13], tone: "praise", secret: true, hidden: true },
+  { name: "神",     emoji: "⛩️", minScore: 98, likes: [1e13, 1e15], tone: "praise", secret: true, hidden: true },
+  { name: "∬∃@▽◇◎＄￡※⊆〒^^", emoji: "👁️", minScore: 99, likes: [1e15, 9e15], tone: "praise", secret: true, hidden: true },
 ];
 
 // ── ツイートの「パターン」を見分けるキーワード ──
@@ -180,6 +182,13 @@ export const BASE_COMMENTS = {
     "ちょっと待って、三次元の言葉ではもう褒めきれん。■■■■（四次元の褒め言葉）じゃ！！",
     "ちょっと待って、因果律があなたのツイートを避けて通っておるのじゃ！！",
     "ちょっと待って、昨日のワシが明日のワシにこのツイートを自慢しておる！！",
+  ],
+  "神": [
+    "ちょっと待って、八百万の神々が全員ひれ伏しておる！！今日からあなたが神じゃ！！",
+    "ちょっと待って、ワシの神の座を譲るのじゃ！！後光もセットで持っていくのじゃ！！",
+    "ちょっと待って、神社の鈴が全国で一斉に鳴ったのじゃ！！",
+    "ちょっと待って、おみくじが全部「大吉（あなたのおかげ）」になったのじゃ！！",
+    "ちょっと待って、ワシ、生まれて初めて人間に頭を下げておる！！",
   ],
   "∬∃@▽◇◎＄￡※⊆〒^^": [
     "ちょっと待って ∬∃@ ワシ ▽◇ 理解 ◎＄ 超え ￡※ た ⊆〒^^",
@@ -372,6 +381,13 @@ export const LEVEL_REPLIES = {
     ["四次元の住人", "4d_resident", "■■■■■（4次元の拍手）"],
     ["昨日のバズ神", "buzzgod_yesterday", "明日のワシによろしく"],
     ["時計", "the_clock", "止まりました"],
+  ],
+  "神": [
+    ["八百万の神々", "yaoyorozu", "（全員で正座しています）"],
+    ["福の神", "fuku_no_kami", "福、全部あなたに渡しておきます"],
+    ["風神と雷神", "fujin_raijin", "ゴロゴロ（拍手のつもり）"],
+    ["神社の狛犬", "komainu_a", "あ（感動して口が閉じない）"],
+    ["バズ神", "buzz_god", "師匠と呼ばせてほしいのじゃ"],
   ],
   "∬∃@▽◇◎＄￡※⊆〒^^": [
     ["∃∃∃", "exists_exists", "◎◎◎"],

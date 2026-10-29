@@ -204,8 +204,9 @@ export default {
     }
 
     if (url.pathname === "/api/levels") {
-      // 画面のバズマップ用（シークレットは名前を伏せる）
-      return Response.json(LEVELS.map((l) => ({ name: l.secret ? null : l.name, emoji: l.secret ? null : l.emoji, secret: !!l.secret })));
+      // 画面のバズマップ用（シークレットは名前を伏せる。シークレットの中のシークレットは存在ごと隠す）
+      return Response.json(LEVELS.filter((l) => !l.hidden)
+        .map((l) => ({ name: l.secret ? null : l.name, emoji: l.secret ? null : l.emoji, secret: !!l.secret })));
     }
 
     if (url.pathname === "/") {
