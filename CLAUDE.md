@@ -120,7 +120,7 @@ stage・who・索引の足し方は `tools/migrate-security.sql`（古いコー�
 どれもテストの「荒らし対策」に入っている。守りを変えたら、そこも見る。
 - **無料枠を守る**（Workers 無料は1日10万リクエスト、D1 は1日500万行読み取り・10万行書き込み。UTC 0時＝日本の朝9時にリセット）
   - 一覧は全件読まない：いいね数は `idx_buzzes_listed_likes`、バズ力は `idx_buzzes_rank`、最新は `idx_buzzes_listed_id`、「これまで ○ 件」は `MAX(id)` から消した分（`DELETED_POSTS`）を引くだけ。全件読む SQL（`COUNT(*)` や索引のない `ORDER BY`）を一覧に足さない
-  - 一覧は `caches.default` に少しの間ためる（`LISTS` の `seconds`。ランキング・最新30秒、件数60秒）。キーは決まった形だけなので、`?x=1` を付けてもためた分を素通りできない
+  - 一覧は `caches.default` に少しの間ためる（`LISTS` の `seconds`。ランキング・最新30秒、件数60秒）。キーは決まった形だけなので、`?x=1` を付けてもためた分を素通りできない。workers.dev でも効く（2026-10-30 に本番で `cf-cache-status: HIT` を確認。入るまで数秒かかることがある）
   - 1人が1日に保存できるのは60件まで（`DAILY_SAVES`、`Gate` の `canSave`）。超えても結果は返すが保存しない。だから1人では D1 の書き込み枠も一覧も埋められない
   - D1 が止まっても止まらない：投稿は保存に失敗しても結果を返す。一覧は最後に読めたもの（`lastGood`）を出す
   - **コードでは守れないこと**：断った投稿も Worker の1リクエストに数えるので、1日10万回たたかれると無料プランは止まる（Error 1027）。workers.dev には Cloudflare の WAF も使えない。困ったら Workers Paid（月5ドル）にする
