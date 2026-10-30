@@ -76,14 +76,28 @@ export const NG_WORDS = [
   /セックス|せっくす/, /オナニ|おなにー/, /フェラ(?![ァ-ヴー])/, /中出し/, /勃起/, /射精|精液|精子/,
   /(?<!グ)レイプ/, /(?<!ヘア|髪)ゴムしてる/,
   /porn|hentai|xvideos|fuck|\bsex\b|nigg(?:er|a)/,
+  /キチガイ|気違い|ガイジ(?!ン)|池沼|チョン(?!マゲ|ボ)|支那人|シナ人/,   // 差別語（ひらがなの「きちがい」は「聞きちがい」があるので入れない）
+  /殺す|殺害|爆破|放火|死ね(?![るんなま])/,   // 脅し。犯行予告のような投稿を、みんなの一覧に載せない（「尊くて死ねる」「死ねん」は通す）
 ];
+// カタカナとひらがなを混ぜたごまかし（「ちンこ」「セッくす」）用。全部ひらがなにしてから比べる
+const toHiragana = (s) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const FOLDED_NG = [/(?<!ぱ)ちんこ/, /ちんぽ/, /ちんちん(?!電車|でんしゃ)/, /まんこ(?![ぁ-ゖー])/, /てこき/, /やりまん|やりちん/, /せっくす/, /おなにー/];
 // URL（よそのサイトへ誘う投稿）。「pornhub.com」のような http なしの書き方も拾う
-export const URL_RE = /https?:|www\.|[a-z0-9-]+\.(?:com|net|org|jp|io|xyz|me|tv|ly|cc|to|gg|info|biz|site|app|dev)\b/;
+export const URL_RE = /https?:|www\.|[a-z0-9-]+\.(?:com|net|org|jp|io|xyz|me|tv|ly|cc|to|gg|info|biz|site|app|dev|co|ru|cn|kr|tokyo|shop|top|link|club|online|live|page|vip|be|gl|ai|fm|us|uk|de|fr|br|tk|ml|cf|ga|pw|icu|lol|moe)\b/;
+// 上にない短い終わり方（evil.xxx）も URL とみなす。ファイル名や「Mr.Big」「Dr.Who」は除く
+const ANY_DOMAIN_RE = /[a-z0-9-]+(?<!\b(?:mr|mrs|ms|dr|st|mt|vs|no|jr))\.(?!(?:js|ts|py|md|sh|rb|go|rs|cs|css|txt|exe|png|jpg|gif|pdf|zip|mp3|mp4|am|pm)\b)[a-z]{2,3}\b/;
+// 個人情報と名指し（メールアドレス・@宛先・電話番号）。だれかの連絡先や、名指しの攻撃をみんなの一覧に載せない
+export const PERSONAL_RE = /[a-z0-9._%+-]+@[a-z0-9-]+\.[a-z]{2,}|(?:^|[^a-z0-9_])@[a-z0-9_]{2,15}(?![a-z0-9_])/;
+const PHONE_RE = /(?<!\d)0\d{9,10}(?!\d)/;
 // 一覧に出さない投稿なら true（tools/unlist-old.mjs からも使うので、Workers 専用のものに頼らずここに置く）
 export function isUnlisted(text) {
-  const n = text.normalize("NFKC").toLowerCase();
-  const s = n.replace(/[\s\p{M}\p{Cf}・.,_*\-‐]/gu, "");   // 間に入れた空白や記号を抜く
-  return URL_RE.test(n) || NG_WORDS.some((re) => re.test(n) || re.test(s));
+  const n = text.normalize("NFKC").toLowerCase().replace(/。/g, ".");   // 「example。com」も URL として見る
+  const s = n.replace(/[^\p{L}\p{N}]/gu, "");   // 間に入れた空白や記号（「ち ん こ」「ち♡ん♡こ」）を抜く
+  if (new Set(s).size < 3) return true;   // 「a」「ああああ」のような中身のない投稿（連打の荒らしを一覧に出さない）
+  if (PHONE_RE.test(n.replace(/[\s().\-‐－ー]/g, ""))) return true;
+  if (URL_RE.test(n) || URL_RE.test(n.replace(/\s*\.\s*/g, ".")) || ANY_DOMAIN_RE.test(n) || /https?/.test(s) && /https?:\s*\/\s*\//.test(n.replace(/\s/g, ""))) return true;
+  const f = toHiragana(s);
+  return PERSONAL_RE.test(n) || NG_WORDS.some((re) => re.test(n) || re.test(s)) || FOLDED_NG.some((re) => re.test(f));
 }
 
 // ── 講評とリプライ（中身は src/lines/ のファイル。文章を足したり変えたりするときはそちらを触る）──

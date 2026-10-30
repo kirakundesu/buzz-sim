@@ -17,6 +17,7 @@ export const HTML = String.raw`<!doctype html>
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=2">
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
@@ -714,12 +715,16 @@ export const HTML = String.raw`<!doctype html>
   .board .rank { width: 28px; text-align: center; font-weight: 800; color: var(--sub); flex: none; }
   .board .txt { flex: 1 1 calc(100% - 40px); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .board .meta { flex-basis: 100%; padding-left: 40px; color: var(--sub); font-size: 13px; white-space: nowrap; }
+  /* テストモードだけ出る、投稿を隠すボタン */
+  .board .mod { flex-basis: 100%; display: flex; gap: 8px; padding-left: 40px; }
+  .board .mod button { min-height: 44px; padding: 0 12px; border: 1px solid #7f1d1d; border-radius: 10px; background: transparent; color: #fca5a5; font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer; }
   @media (min-width: 640px) {
     .modal header { gap: 8px; padding: 14px; }
     .tab { font-size: 15px; }
     .board li { flex-wrap: nowrap; }
     .board .txt { flex: 1; }
     .board .meta { flex-basis: auto; padding-left: 0; }
+    .board .mod { flex-basis: auto; padding-left: 0; }
   }
   .board .empty { color: var(--sub); justify-content: center; }
 
@@ -2154,7 +2159,7 @@ $("share").addEventListener("click", function () {
   var d = shownResult || lastResult;
   if (!d) return;
   var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + lvLabel(d) + "のバズ！ ❤️ " + likeNum(d.likes) + " #ツイートバズシミュレーター";
-  window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(location.origin + "/"), "_blank");
+  window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(location.origin + "/"), "_blank", "noopener");
 });
 $("again").addEventListener("click", function () {
   closeResult();
@@ -2185,7 +2190,8 @@ document.querySelectorAll(".tab").forEach(function (t) {
 async function loadBoard() {
   var board = $("board"); board.innerHTML = "";
   var tab = currentTab;
-  var items = await fetch(BOARD_URL[tab]).then(function (r) { return r.json(); }).catch(function () { return []; });
+  // テストモードでは、隠した投稿がすぐ消えたと分かるように、ブラウザにためた分を使わない
+  var items = await fetch(BOARD_URL[tab], adminKey ? { cache: "no-cache" } : {}).then(function (r) { return r.json(); }).catch(function () { return []; });
   if (tab !== currentTab) return;   // 読み込み中に別のタブを押されたら、古い結果は捨てる
   if (!items.length) { var e = document.createElement("li"); e.className = "empty"; e.textContent = "まだ投稿がありません。一番乗りしよう！"; board.append(e); return; }
   var medals = ["🥇", "🥈", "🥉"];
@@ -2200,8 +2206,27 @@ async function loadBoard() {
     // 並べている数字を先に出す
     if (tab === "likes") meta.append(likes, " ・ ", scoreSpan(item, "点"));
     else meta.append(scoreSpan(item, "点 ・ "), likes);
-    li.append(rank, txt, meta); board.append(li);
+    li.append(rank, txt, meta);
+    if (adminKey && item.id) li.append(modTools(item, li));
+    board.append(li);
   });
+}
+// テストモード（合言葉を入れた本人）だけ：荒らしの投稿をその場で一覧から隠す
+function modTools(item, li) {
+  var box = document.createElement("span"); box.className = "mod";
+  [["🙈 隠す", false, "この投稿をみんなの一覧から隠しますか？"], ["🚫 この人を全部", true, "この人の投稿をぜんぶ一覧から隠しますか？"]].forEach(function (a) {
+    var b = document.createElement("button"); b.textContent = a[0];
+    b.addEventListener("click", async function () {
+      if (!confirm(a[2])) return;
+      var r = await fetch("/api/admin/hide", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: adminKey, id: item.id, all: a[1] }) })
+        .catch(function () { return null; });
+      var data = r ? await r.json().catch(function () { return {}; }) : {};
+      if (!r || !r.ok) { toast("⚠️ " + (data.error || "隠せませんでした")); return; }
+      li.remove(); toast("🙈 " + data.hidden + "件を隠しました");
+    });
+    box.append(b);
+  });
+  return box;
 }
 
 // 右のTOP3：バズ力といいね数を切り替えられる
@@ -2229,7 +2254,7 @@ async function loadTop3() {
     li.append(m, t, s); ol.append(li);
   });
   var stats = await fetch("/api/stats").then(function (r) { return r.json(); }).catch(function () { return null; });
-  if (stats) $("postsCount").textContent = "（これまで " + Number(stats.posts).toLocaleString() + " 件）";
+  if (stats && stats.posts) $("postsCount").textContent = "（これまで " + Number(stats.posts).toLocaleString() + " 件）";
 }
 
 // ── テストモード ──
@@ -2245,8 +2270,10 @@ function showAdminPanel() {
     grid.append(b);
   });
 }
+var adminError = "合言葉が違います";
 async function adminCheck(key) {
   var r = await fetch("/api/admin/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: key }) });
+  if (!r.ok) adminError = (await r.json().catch(function () { return {}; })).error || adminError;
   return r.ok;
 }
 async function runTest(level) {
@@ -2261,14 +2288,18 @@ async function runTest(level) {
 }
 if (new URLSearchParams(location.search).has("admin") || adminKey) {
   $("admin").classList.add("show");
-  if (adminKey) adminCheck(adminKey).then(function (ok) { if (ok) showAdminPanel(); else { adminKey = null; } });
+  // 古くなった合言葉を覚えたままだと、開き直すたびに間違いとして数えられるので忘れる
+  if (adminKey) adminCheck(adminKey).then(function (ok) {
+    if (ok) showAdminPanel();
+    else { adminKey = null; try { sessionStorage.removeItem("buzz_admin"); } catch (e) {} }
+  });
 }
 $("adminGo").addEventListener("click", async function () {
   var key = $("adminKey").value;
   if (await adminCheck(key)) {
     adminKey = key; try { sessionStorage.setItem("buzz_admin", key); } catch (e) {}
     showAdminPanel(); toast("🧪 テストモードに入りました");
-  } else toast("⚠️ 合言葉が違います");
+  } else toast("⚠️ " + adminError);
 });
 $("adminKey").addEventListener("keydown", function (e) { if (e.key === "Enter") $("adminGo").click(); });
 $("adminHead").addEventListener("click", function (e) { if (e.target.id !== "adminOut") $("admin").classList.toggle("fold"); });

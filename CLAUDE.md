@@ -24,6 +24,8 @@
 - `public/ogp.png`：OGP画像（1200×630）。`npm run ogp`（= `tools/make-ogp.mjs`）で作り直す。パソコンの Chrome（なければ Edge）で撮影するので、ネット接続が必要。作り直したら page.js の `ogp.png?v=数字` を1つ上げる（Xなどの古いキャッシュを避けるため）
 - `public/gods/*.png`：バズ神のアニメPNG（idle think roast cold warm good praise kami alien）。`npm run gods`（= `tools/make-gods.mjs`）で作り直す。手で編集しない
 - `tools/unlist-old.mjs`：前からある投稿に「一覧に出さない」印を付け直す（下の「ランキングに出さない投稿」）
+- `tools/migrate-security.sql`：stage・who の列と索引を足す SQL（D1 のテーブルの節を参照）
+- `public/_headers`：静的ファイルに付けるヘッダー
 - `test/index.spec.js`：テスト（`npx vitest run`）
 - `wrangler.jsonc`：設定（下記）
 - `.dev.vars`：ローカル用の合言葉（`ADMIN_KEY=...`）。gitに入れない
@@ -41,10 +43,16 @@ CREATE TABLE buzzes (
   score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   comment TEXT,  -- 後から ALTER TABLE で追加
-  unlisted INTEGER NOT NULL DEFAULT 0  -- 後から ALTER TABLE で追加（2026-10-30）。1 ならランキング・履歴に出さない
+  unlisted INTEGER NOT NULL DEFAULT 0,  -- 後から ALTER TABLE で追加（2026-10-30）。0 以外はランキング・履歴に出さない（1＝言葉の判定や手で隠したもの、2＝公開前にまとめて隠した古い投稿。戻すなら UPDATE buzzes SET unlisted = 0 WHERE unlisted = 2）
+  stage INTEGER NOT NULL DEFAULT 0,     -- 後から追加。段階の番号（バズ力ランキングを全件読まずに並べるため）
+  who TEXT                              -- 後から追加。同じ人を表す印（合言葉を鍵にした IP のハッシュの先頭。IP そのものは保存しない）
 );
-CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
+-- 索引はどれも「一覧に出る行だけ」。隠れた投稿がいくら増えても、一覧を読む量と書きこむ量が増えない
+CREATE INDEX idx_buzzes_listed_likes ON buzzes (likes DESC) WHERE unlisted = 0;
+CREATE INDEX idx_buzzes_listed_id ON buzzes (id DESC) WHERE unlisted = 0;
+CREATE INDEX idx_buzzes_rank ON buzzes (stage DESC, score DESC, likes DESC) WHERE unlisted = 0;
 ```
+stage・who・索引の足し方は `tools/migrate-security.sql`（古いコードのままでも動くので、デプロイの前に流す）。
 本番DBを触るときは `--remote`、ローカルは `--local`。
 
 ## 採点と段階
@@ -96,7 +104,7 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 - `GET /api/ranking`：いいね数ランキング。`?by=score` でバズ力ランキング（段階が上のものから、同じ段階なら点数順）
 - `GET /api/history` `/api/ranking` `/api/stats` `/api/levels`
 - ランキングに出さない投稿（2026-10-30、公開直後に下ネタと URL がランキングに並んだのを受けて）：
-  - 下ネタ・差別語（data.js の `NG_WORDS`）と URL（`URL_RE`）を含む投稿は、ふつうに採点して結果も見せ、D1 にも保存するが、`unlisted = 1` にして `/api/ranking` と `/api/history`（＝TOP3・ランキング・最新のバズ）に出さない。`/api/stats` は文章を出さないので数に入れたまま
+  - 下ネタ・差別語（data.js の `NG_WORDS`）、URL（`URL_RE`）、個人情報と名指し（メールアドレス・@宛先・電話番号）、中身のない投稿（文字が2種類以下の「a」「ああああ」）は、ふつうに採点して結果も見せ、D1 にも保存するが、`unlisted = 1` にして `/api/ranking` と `/api/history`（＝TOP3・ランキング・最新のバズ）に出さない。`/api/stats` は文章を出さないので数に入れたまま
   - 判定は data.js の `isUnlisted`。全角→半角・小文字にして、間の空白や記号（「ち ん こ」「ﾁﾝｺ」）も抜いて比べる。結果画面の自分のツイートの下に「🙈 この投稿は、みんなのランキングには載せないでおくのじゃ」と出る
   - ふつうのツイートを巻き込まないように言葉は絞ってある（パチンコ・ちんちん電車・フェラーリ・ヘアゴム・漫湖・うんこ は拾わない）。言葉を足したら、テストの「ふつうのツイートは引っかからない」に似た言葉を足し、バズ神の講評とリプライ（約5000個）が1つも引っかからないことを確かめる
   - 列にしたのは、並べ替えを D1 に任せたまま条件を1つ足すだけで済み、言葉で拾えない投稿も手で隠せるから。手で隠す・戻す：`npx wrangler d1 execute buzz-db --remote --command "UPDATE buzzes SET unlisted = 1 WHERE id = 123"`（戻すときは 0）
@@ -104,7 +112,24 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
   - 本番の列を足す順番：① `ALTER TABLE buzzes ADD COLUMN unlisted INTEGER NOT NULL DEFAULT 0`（古いコードのままでも動く）→ ② デプロイ → ③ `node tools/unlist-old.mjs --remote --apply`。先にデプロイすると投稿が保存できなくなる
   - ローカルの D1 も同じ列が要る（`--local` で同じ ALTER。2026-10-30 に済み）
 - `POST /api/admin/check` `/api/admin/test`：テストモード用。`ADMIN_KEY` シークレットと一致しないと403。テスト結果はD1に保存しない
-- テストモードは本番URLの末尾に `?admin` を付けて合言葉を入れると使える（本人専用）
+- `POST /api/admin/hide`（`{ key, id, all }`）：投稿を一覧から隠す。`all: true` で同じ人の投稿をぜんぶ。戻すときは `UPDATE buzzes SET unlisted = 0 WHERE id = 123`
+- テストモードは本番URLの末尾に `?admin` を付けて合言葉を入れると使える（本人専用）。入ったあとは「みんなのランキング」の各行に「🙈 隠す」「🚫 この人を全部」が出る（スマホからも荒らしを消せる）
+- 合言葉：同じ人（IP）が1時間に10回間違えると、1時間止める（`Gate` の `isLocked` と `missed`。storage に残す）。比べるときは時間差が出ない `sameKey` を使う
+
+## 荒らし・攻撃への備え（2026-10-30、公開前に総点検）
+どれもテストの「荒らし対策」に入っている。守りを変えたら、そこも見る。
+- **無料枠を守る**（Workers 無料は1日10万リクエスト、D1 は1日500万行読み取り・10万行書き込み。UTC 0時＝日本の朝9時にリセット）
+  - 一覧は全件読まない：いいね数は `idx_buzzes_listed_likes`、バズ力は `idx_buzzes_rank`、最新は `idx_buzzes_listed_id`、「これまで ○ 件」は `MAX(id)` から消した分（`DELETED_POSTS`）を引くだけ。全件読む SQL（`COUNT(*)` や索引のない `ORDER BY`）を一覧に足さない
+  - 一覧は `caches.default` に少しの間ためる（`LISTS` の `seconds`。ランキング・最新30秒、件数60秒）。キーは決まった形だけなので、`?x=1` を付けてもためた分を素通りできない
+  - 1人が1日に保存できるのは60件まで（`DAILY_SAVES`、`Gate` の `canSave`）。超えても結果は返すが保存しない。だから1人では D1 の書き込み枠も一覧も埋められない
+  - D1 が止まっても止まらない：投稿は保存に失敗しても結果を返す。一覧は最後に読めたもの（`lastGood`）を出す
+  - **コードでは守れないこと**：断った投稿も Worker の1リクエストに数えるので、1日10万回たたかれると無料プランは止まる（Error 1027）。workers.dev には Cloudflare の WAF も使えない。困ったら Workers Paid（月5ドル）にする
+- **投稿**：`sameSite`（JSON 以外と別の Origin は断る＝よそのサイトから来た人のブラウザで投稿させる CSRF を防ぐ）、`readJson`（4KB まで少しずつ読む。null や配列は空として扱う）、`cleanText`（見えない文字・向きを変える文字・Zalgo・壊れた文字を消す）、`personKey`（IPv6 は /64 で同じ人）
+- **一覧**：`onePerPerson` で1人1件・同じ文章は1件。多めに読んでから絞る（ランキング100件→10件、最新100件→20件）。`DAILY_SAVES` は読む数（100）より小さくしておく
+- **言葉の判定**：差別語と脅し（殺す・爆破など）も `NG_WORDS` に入れた。カタカナ混ぜ（「ちンこ」）は `FOLDED_NG` で全部ひらがなにして比べる。記号はぜんぶ抜いて比べる（「ち♡ん♡こ」）。誤判定を見つけたら、テストの「ふつうのツイートは引っかからない」に足してから直す
+- **画面**：CSP は毎回変わる nonce 付き（`page()`）。`<script>` は1つだけで、`onclick=` などの属性や外の script は動かない。足すなら CSP も見る。Google Fonts 以外の外部のものを読むときも CSP を直す
+- **どの返事にも**：`COMMON_HEADERS`。静的ファイルは `public/_headers`
+- 細工できてしまうこと（ジョークサイトなので受け入れている）：`seen` と `posts` は画面から送られるので、順位はスクリプトで操作できる。IP を変えられる人の連投は止めきれない。言葉の判定をすり抜けた投稿は「隠す」で消す
 
 ## 画面の決まりごと
 - page.js は `String.raw` のテンプレートなので、中のJSでバッククォートと `${` は使わない（文字列連結で書く）。
@@ -143,6 +168,7 @@ CREATE INDEX idx_buzzes_likes ON buzzes (likes DESC);
 GitHubに buzz-sim リポジトリを作成済み。
 
 ## 2026-10-30
+⑮ 公開前の総点検：無料枠を守る（索引・一覧をためる）・D1 が止まっても動く・CSRF と IPv6 の連投を防ぐ・文章の掃除・一覧は1人1件・テストモードに「隠す」・CSP などのヘッダー・合言葉の間違い制限。
 ⑭ 下ネタ・差別語・URL の投稿をランキングと履歴に出さない（`unlisted` 列。投稿と採点はそのまま）。
 ⑬ エンドコンテンツ3つ（無・創世・真・家庭内）・∬…の演出を点滅なしで派手に・いいね数がごくまれに京から上へ（超バズ）・連投の制限（1秒に234回のスクリプト連投を受けて）。
 ⑫ スマホ版の整え（640/1024の2段）・点滅しない演出（光過敏への配慮）・∬…到達後のトップを宇宙人に・通知の位置・バズの波を飛び飛びに＆全部見たあともシークレットが出るように。

@@ -6,6 +6,7 @@
 //   下ネタ・差別語・URL の投稿（data.js の isUnlisted）は unlisted = 1 で保存し、この2つには出さない
 // POST /api/admin/check → 合言葉が正しいか確認（テストモード用）
 // POST /api/admin/test  → 段階を指定して演出をテスト（D1には保存しない）
+// POST /api/admin/hide  → 投稿を一覧から隠す（all: true で同じ人の投稿をぜんぶ）
 //
 // テストモードの合言葉は Cloudflare の「シークレット」に ADMIN_KEY という名前で保存する
 //   本番：npx wrangler secret put ADMIN_KEY
@@ -262,6 +263,10 @@ const RULES = {
   buzz:  { limiters: [["BURST_LIMIT", 10], ["MINUTE_LIMIT", 60]], gate: [[4, 10], [15, 60]] },   // gate は [回数, 秒]
   admin: { limiters: [["MINUTE_LIMIT", 60]], gate: [[15, 60]] },
 };
+const HOUR = 3_600_000, ADMIN_MISSES = 10;   // 合言葉を1時間に10回間違えたら、1時間止める
+// 1人が1日に保存できる数。超えても結果は返すが保存しない（一覧の読み取り枠や D1 の書き込み枠を1人で埋められないように）
+// 一覧は100件読んでから1人1件に絞るので、100より小さくしておく
+const DAILY_SAVES = 60;
 export class Gate extends DurableObject {
   hits = [];   // 通した時刻（ミリ秒）。メモリに置くだけ（しばらく使われないと消えるが、それでよい）
   check(rules) {
@@ -273,16 +278,35 @@ export class Gate extends DurableObject {
     this.hits.push(now);
     return 0;
   }
+  // 今日まだ保存してよければ true。上限に着いたら、もう書きこまない
+  async canSave() {
+    const day = new Date().toISOString().slice(0, 10);
+    const saved = (await this.ctx.storage.get("saved")) || { day, n: 0 };
+    const n = saved.day === day ? saved.n : 0;
+    if (n >= DAILY_SAVES) return false;
+    await this.ctx.storage.put("saved", { day, n: n + 1 });
+    return true;
+  }
+  // 合言葉の間違いは、時間をあけて試されても数えられるように storage に残す
+  async isLocked() { return ((await this.ctx.storage.get("lockUntil")) || 0) > Date.now(); }
+  async missed() {
+    const now = Date.now();
+    const misses = ((await this.ctx.storage.get("misses")) || []).filter((t) => now - t < HOUR);
+    misses.push(now);
+    await this.ctx.storage.put("misses", misses);
+    if (misses.length >= ADMIN_MISSES) await this.ctx.storage.put("lockUntil", now + HOUR);
+  }
 }
+const gateOf = (env, key) => env.GATE.get(env.GATE.idFromName(key));
 // 待ってほしい秒数を返す（0 なら通してよい）
-async function tooFast(env, kind, ip) {
-  const rule = RULES[kind], key = kind + ":" + ip;
+async function tooFast(env, kind, person) {
+  const rule = RULES[kind], key = kind + ":" + person;
   for (const [name, wait] of rule.limiters) {
     if (env[name] && !(await env[name].limit({ key })).success) return wait;
   }
   if (!env.GATE) return 0;
   // 係が呼べないとき（無料枠の上限など）は、ふつうの人を止めないように通す
-  try { return await env.GATE.get(env.GATE.idFromName(key)).check(rule.gate); } catch { return 0; }
+  try { return await gateOf(env, key).check(rule.gate); } catch { return 0; }
 }
 function slowDown(wait) {
   return Response.json(
@@ -291,89 +315,231 @@ function slowDown(wait) {
   );
 }
 
+// ── 入ってくるものを疑う ──
+// 同じ人を表す文字列。IPv6 は1つの回線で住所をいくらでも変えられるので、回線の単位（先頭4つ＝/64）で数える
+export function personKey(ip) {
+  if (!ip.includes(":") || ip.includes(".")) return ip.split(":").pop();   // IPv4（::ffff:1.2.3.4 の形も）
+  const [head, tail = ""] = ip.toLowerCase().split("::");
+  const h = head ? head.split(":") : [], t = tail ? tail.split(":") : [];
+  const full = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t];
+  return full.slice(0, 4).map((x) => x.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+// よそのサイトが、来た人のブラウザを使って投稿させるのを防ぐ。JSON で送るとブラウザが事前に確認するので、よそからは送れない
+function sameSite(request, url) {
+  const origin = request.headers.get("origin");
+  return (request.headers.get("content-type") || "").toLowerCase().startsWith("application/json") && (!origin || origin === url.origin);
+}
+const otherSite = () => Response.json({ error: "このサイトの画面から送ってください" }, { status: 403 });
+// 本文は小さな JSON のオブジェクトだけ受け取る。巨大なもの・壊れたもの・null は空として扱う
+const MAX_BODY = 4096;
+async function readJson(request) {
+  if (Number(request.headers.get("content-length") || 0) > MAX_BODY || !request.body) return {};
+  try {
+    // 長さを書かずに送られても読みすぎないように、少しずつ読んで上限で打ち切る
+    const reader = request.body.getReader(), chunks = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > MAX_BODY) { await reader.cancel(); return {}; }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let at = 0;
+    for (const c of chunks) { bytes.set(c, at); at += c.length; }
+    const v = JSON.parse(new TextDecoder().decode(bytes));
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  } catch { return {}; }
+}
+// 投稿の文章をきれいにする。見えない文字・文字の向きを変える制御文字・縦に伸びる飾り（Zalgo）で一覧を崩されないように
+export function cleanText(raw) {
+  return (typeof raw === "string" ? raw : "")
+    .replace(/\r\n?|[\u2028\u2029]/g, "\n").replace(/\t/g, " ")
+    .replace(/\p{Cs}/gu, "")   // 壊れた文字（絵文字の片割れ）。シェアのときに URL にできず止まる
+    .replace(/[\p{Cc}\p{Cf}\p{Cn}\p{Co}\u115F\u1160\u2800\u3164\uFFA0]/gu, (c) => (c === "\n" || c === "\u200D" ? c : ""))   // 改行と絵文字をつなぐ文字だけ残す
+    .replace(/(\p{M}{3})\p{M}+/gu, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim().slice(0, 140).replace(/[\uD800-\uDBFF]$/, "");
+}
+// 一覧を1人1件にするための印。IP そのものは保存しない（合言葉を鍵にしたハッシュの先頭だけ）
+async function whoOf(env, person) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(env.ADMIN_KEY || "buzz"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(person));
+  return [...new Uint8Array(sig)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+// 合言葉を比べる。長さや一致した位置が、返事にかかる時間から分からないように
+async function sameKey(a, b) {
+  const enc = new TextEncoder();
+  const [x, y] = await Promise.all([a, b].map((s) => crypto.subtle.digest("SHA-256", enc.encode(String(s)))));
+  return crypto.subtle.timingSafeEqual(x, y);
+}
+
+// ── みんなが見る一覧 ──
+// D1 の無料枠（1日500万行の読み取り）を守る。どの一覧も索引で少しの行だけ読み、結果は少しの間ためておく。
+// D1 が答えられない（無料枠を使い切った等）ときは、最後に読めた一覧を見せてサイトを止めない
+// 1人で一覧を埋められないように、同じ人の投稿と同じ文章は1件にする（多めに読んでから絞る）
+function onePerPerson(rows, limit) {
+  const people = new Set(), texts = new Set(), out = [];
+  for (const { who, ...row } of rows) {
+    const t = row.text.normalize("NFKC").toLowerCase().replace(/\s/g, "");
+    if (texts.has(t) || (who && people.has(who))) continue;
+    texts.add(t); if (who) people.add(who);
+    out.push(row);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+const TOP_SQL = "SELECT id, text, level, emoji, score, likes, who FROM buzzes WHERE unlisted = 0 ORDER BY ";
+const LATEST_SQL = "SELECT id, text, level, emoji, score, likes, created_at, who FROM buzzes WHERE unlisted = 0 ORDER BY id DESC LIMIT 100";
+const DELETED_POSTS = 1959;   // 2026-10-30 に消した連投の「a」の数（「これまで ○ 件」から引く）
+const LISTS = {
+  "/api/ranking":          { seconds: 30, load: async (db) => onePerPerson((await db.prepare(TOP_SQL + "likes DESC LIMIT 100").all()).results, 10) },
+  "/api/ranking?by=score": { seconds: 30, load: async (db) => onePerPerson((await db.prepare(TOP_SQL + "stage DESC, score DESC, likes DESC LIMIT 100").all()).results, 10) },
+  "/api/history":          { seconds: 30, load: async (db) => onePerPerson((await db.prepare(LATEST_SQL).all()).results, 20) },
+  // 数えると全部の行を読むことになるので、番号のいちばん大きいものを見るだけにする（文章は出さないので、一覧に出さない投稿も数に入る）
+  "/api/stats":            { seconds: 60, load: async (db) => ({ posts: Math.max(0, ((await db.prepare("SELECT MAX(id) AS n FROM buzzes").first())?.n ?? 0) - DELETED_POSTS) }) },
+};
+const lastGood = {};
+export const clearLists = (origin) => Promise.all(Object.keys(LISTS).map((path) => caches.default.delete(origin + path)));
+async function serveList(path, env, origin) {
+  const key = origin + path;   // ?x=1 のような余計なものを付けられても、同じものを返す（ためている分を素通りさせない）
+  const hit = await caches.default.match(key);
+  if (hit) return hit;
+  let seconds = LISTS[path].seconds;
+  try {
+    lastGood[path] = await LISTS[path].load(env.DB);
+  } catch (e) {
+    console.error("一覧を読めなかった", path, e);
+    lastGood[path] ??= path === "/api/stats" ? {} : [];
+    seconds = 5;
+  }
+  const res = Response.json(lastGood[path], { headers: { "cache-control": "public, max-age=" + seconds } });
+  await caches.default.put(key, res.clone());
+  return res;
+}
+
+// ── 画面と、どの返事にも付ける守り ──
+// CSP：このページの中の script（毎回変わる nonce 付き）とフォントだけを動かす。だれかの文章が script として動く余地をなくす。枠に入れて上から重ねる攻撃も防ぐ
+const SCRIPT_AT = HTML.indexOf("<script>"), HTML_HEAD = HTML.slice(0, SCRIPT_AT), HTML_REST = HTML.slice(SCRIPT_AT + "<script>".length);
+function page() {
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  return new Response(HTML_HEAD + '<script nonce="' + nonce + '">' + HTML_REST, { headers: {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "private, max-age=60",
+    "x-frame-options": "DENY",
+    "content-security-policy": "default-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; " +
+      "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  } });
+}
+const COMMON_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "cross-origin-opener-policy": "same-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()",
+};
+
+async function route(request, env) {
+  const url = new URL(request.url);
+  const person = personKey(request.headers.get("cf-connecting-ip") || "unknown");
+
+  if (url.pathname === "/api/buzz" && request.method === "POST") {
+    if (!sameSite(request, url)) return otherSite();
+    const wait = await tooFast(env, "buzz", person);
+    if (wait) return slowDown(wait);
+    const body = await readJson(request);
+    const text = cleanText(body.text);
+    if (!text) {
+      return Response.json({ error: "ツイートを入力してください" }, { status: 400 });
+    }
+    // 「バズの波」用：見たことのある段階（0〜13 の番号）と投稿回数。おかしな値は捨てる
+    const seen = Array.isArray(body.seen)
+      ? [...new Set(body.seen.slice(0, 40).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < LEVELS.length))] : [];
+    const posts = Math.max(0, Math.min(10000, Math.floor(Number(body.posts) || 0)));
+    const result = simulateBuzz(text, null, { seen, posts });
+    // 下ネタ・URL の投稿も採点して結果は返すが、ランキングと履歴には出さない（unlisted = 1）
+    const unlisted = isUnlisted(text);
+    // 1日の上限を超えた分は保存しない。係が呼べないときは保存する
+    const keep = await gateOf(env, "buzz:" + person).canSave().catch(() => true);
+    // D1に保存（env.DB は wrangler.jsonc の binding 名）。保存できなくても（無料枠を使い切った等）、結果は返して遊べるようにする
+    if (keep) {
+      try {
+        await env.DB.prepare(
+          "INSERT INTO buzzes (text, level, emoji, score, likes, retweets, comment, unlisted, stage, who) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(text, result.level, result.emoji, result.score, result.likes, result.retweets, result.comment, unlisted ? 1 : 0, result.levelIndex, await whoOf(env, person)).run();
+      } catch (e) {
+        console.error("保存できなかった", e);
+      }
+    }
+    return Response.json({ text, ...result, unlisted: unlisted || !keep });
+  }
+
+  // ── テストモード（合言葉を知っている人だけ）──
+  if (url.pathname.startsWith("/api/admin/") && request.method === "POST") {
+    if (!sameSite(request, url)) return otherSite();
+    // 合言葉の総当たりを防ぐため、合言葉を比べる前に数える（1分に15回まで）
+    const wait = await tooFast(env, "admin", person);
+    if (wait) return slowDown(wait);
+    const gate = env.GATE ? gateOf(env, "admin:" + person) : null;
+    if (await gate?.isLocked().catch(() => false)) {
+      return Response.json({ error: "合言葉を間違えすぎじゃ。1時間ほど待つのじゃ" }, { status: 429, headers: { "retry-after": "3600" } });
+    }
+    const body = await readJson(request);
+    if (!env.ADMIN_KEY || !(await sameKey(body.key, env.ADMIN_KEY))) {
+      await gate?.missed().catch(() => {});
+      return Response.json({ error: "合言葉が違います" }, { status: 403 });
+    }
+    if (url.pathname === "/api/admin/check") {
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === "/api/admin/test") {
+      const level = Math.max(0, Math.min(LEVELS.length - 1, Math.floor(Number(body.level)) || 0));
+      const text = cleanText(body.text) || "（テスト投稿）";
+      return Response.json({ text, test: true, ...simulateBuzz(text, level), unlisted: isUnlisted(text) });
+    }
+    if (url.pathname === "/api/admin/hide") {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: "番号がおかしいです" }, { status: 400 });
+      const sql = body.all
+        ? "UPDATE buzzes SET unlisted = 1 WHERE id = ?1 OR who = (SELECT who FROM buzzes WHERE id = ?1)"
+        : "UPDATE buzzes SET unlisted = 1 WHERE id = ?1";
+      const { meta } = await env.DB.prepare(sql).bind(id).run();
+      await clearLists(url.origin);
+      return Response.json({ ok: true, hidden: meta.changes });
+    }
+  }
+
+  if (url.pathname === "/api/history" || url.pathname === "/api/ranking" || url.pathname === "/api/stats") {
+    if (request.method !== "GET") return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET" } });
+    // ?by=score でバズ力ランキング（段階が上のものから、同じ段階なら点数順）、それ以外はいいね数ランキング
+    const byScore = url.pathname === "/api/ranking" && url.searchParams.get("by") === "score";
+    return serveList(url.pathname + (byScore ? "?by=score" : ""), env, url.origin);
+  }
+
+  if (url.pathname === "/api/levels") {
+    // 画面のバズマップ用（シークレットは名前を伏せる。シークレットの中のシークレットは存在ごと隠す）
+    return Response.json(LEVELS.filter((l) => !l.hidden)
+      .map((l) => ({ name: l.secret ? null : l.name, emoji: l.secret ? null : l.emoji, secret: !!l.secret })));
+  }
+
+  if (url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) return page();
+
+  return new Response("Not Found", { status: 404 });
+}
+
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    const ip = request.headers.get("cf-connecting-ip") || "unknown";
-
-    if (url.pathname === "/api/buzz" && request.method === "POST") {
-      const wait = await tooFast(env, "buzz", ip);
-      if (wait) return slowDown(wait);
-      const body = await request.json().catch(() => ({}));
-      const text = String(body.text ?? "").trim().slice(0, 140);
-      if (!text) {
-        return Response.json({ error: "ツイートを入力してください" }, { status: 400 });
-      }
-      // 「バズの波」用：見たことのある段階（0〜13 の番号）と投稿回数。おかしな値は捨てる
-      const seen = Array.isArray(body.seen)
-        ? [...new Set(body.seen.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < LEVELS.length))] : [];
-      const posts = Math.max(0, Math.min(10000, Math.floor(Number(body.posts) || 0)));
-      const result = simulateBuzz(text, null, { seen, posts });
-      // 下ネタ・URL の投稿も採点して結果は返すが、ランキングと履歴には出さない（unlisted = 1）
-      const unlisted = isUnlisted(text);
-      // D1に保存（env.DB は wrangler.jsonc の binding 名）
-      await env.DB.prepare(
-        "INSERT INTO buzzes (text, level, emoji, score, likes, retweets, comment, unlisted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-      ).bind(text, result.level, result.emoji, result.score, result.likes, result.retweets, result.comment, unlisted ? 1 : 0).run();
-      return Response.json({ text, ...result, unlisted });
+    let res;
+    try {
+      res = await route(request, env);
+    } catch (e) {
+      // 思わぬエラーでも中身は外に見せない
+      console.error("想定外のエラー", e);
+      res = Response.json({ error: "サーバーでエラーが起きました。少しあとで試してください" }, { status: 500 });
     }
-
-    // ── テストモード（合言葉を知っている人だけ）──
-    if (url.pathname.startsWith("/api/admin/") && request.method === "POST") {
-      // 合言葉の総当たりを防ぐため、合言葉を比べる前に数える（1分に15回まで）
-      const wait = await tooFast(env, "admin", ip);
-      if (wait) return slowDown(wait);
-      const body = await request.json().catch(() => ({}));
-      if (!env.ADMIN_KEY || body.key !== env.ADMIN_KEY) {
-        return Response.json({ error: "合言葉が違います" }, { status: 403 });
-      }
-      if (url.pathname === "/api/admin/check") {
-        return Response.json({ ok: true });
-      }
-      if (url.pathname === "/api/admin/test") {
-        const level = Math.max(0, Math.min(LEVELS.length - 1, Number(body.level) || 0));
-        const text = String(body.text ?? "").trim().slice(0, 140) || "（テスト投稿）";
-        return Response.json({ text, test: true, ...simulateBuzz(text, level), unlisted: isUnlisted(text) });
-      }
-    }
-
-    if (url.pathname === "/api/history") {
-      const { results } = await env.DB.prepare(
-        "SELECT text, level, emoji, score, likes, created_at FROM buzzes WHERE unlisted = 0 ORDER BY id DESC LIMIT 20"
-      ).all();
-      return Response.json(results);
-    }
-
-    if (url.pathname === "/api/ranking") {
-      // ?by=score でバズ力ランキング（段階が上のものから、同じ段階なら点数順）、それ以外はいいね数ランキング
-      const byScore = url.searchParams.get("by") === "score";
-      const order = byScore
-        ? "CASE level " + LEVELS.map(() => "WHEN ? THEN ?").join(" ") + " ELSE -1 END DESC, score DESC, likes DESC"
-        : "likes DESC";
-      const { results } = await env.DB.prepare("SELECT text, level, emoji, score, likes FROM buzzes WHERE unlisted = 0 ORDER BY " + order + " LIMIT 10")
-        .bind(...(byScore ? LEVELS.flatMap((l, i) => [l.name, i]) : [])).all();
-      return Response.json(results);
-    }
-
-    if (url.pathname === "/api/stats") {
-      // みんなの記録（D1から集計）。文章は出さないので、一覧に出さない投稿も数に入れる
-      const secretNames = LEVELS.filter((l) => l.secret).map((l) => l.name);
-      const row = await env.DB.prepare(
-        "SELECT COUNT(*) AS posts, MAX(score) AS best, SUM(CASE WHEN level IN (" + secretNames.map(() => "?").join(",") + ") THEN 1 ELSE 0 END) AS secrets FROM buzzes"
-      ).bind(...secretNames).first();
-      return Response.json({ posts: row?.posts ?? 0, best: row?.best ?? 0, secrets: row?.secrets ?? 0 });
-    }
-
-    if (url.pathname === "/api/levels") {
-      // 画面のバズマップ用（シークレットは名前を伏せる。シークレットの中のシークレットは存在ごと隠す）
-      return Response.json(LEVELS.filter((l) => !l.hidden)
-        .map((l) => ({ name: l.secret ? null : l.name, emoji: l.secret ? null : l.emoji, secret: !!l.secret })));
-    }
-
-    if (url.pathname === "/") {
-      return new Response(HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
-    }
-
-    return new Response("Not Found", { status: 404 });
+    const out = new Response(res.body, res);
+    for (const [k, v] of Object.entries(COMMON_HEADERS)) out.headers.set(k, v);
+    return out;
   },
 };

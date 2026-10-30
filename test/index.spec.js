@@ -1,11 +1,13 @@
 // npx vitest run で実行する
 import { SELF, env } from "cloudflare:test";
-import { describe, it, expect } from "vitest";
-import worker, { simulateBuzz, score, superLikes } from "../src/index.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import worker, { simulateBuzz, score, superLikes, cleanText, personKey, clearLists } from "../src/index.js";
 import { LEVELS, BASE_COMMENTS, LEVEL_REPLIES, THEME_COMMENTS, THEME_REPLIES, isUnlisted } from "../src/data.js";
 
-// 本番の D1 と同じ形（unlisted は後から ALTER TABLE で足した列）
-const CREATE_TABLE = "CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT, unlisted INTEGER NOT NULL DEFAULT 0)";
+// 本番の D1 と同じ形（unlisted・stage・who は後から ALTER TABLE で足した列）
+const CREATE_TABLE = "CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT, unlisted INTEGER NOT NULL DEFAULT 0, stage INTEGER NOT NULL DEFAULT 0, who TEXT)";
+// 一覧は少しの間ためておくので、テストごとに空にする
+beforeEach(() => clearLists("http://example.com"));
 const OPENER = { roast: "は？", cold: "あー……", warm: "ほう……", good: "おお！", praise: "ちょっと待って" };
 
 describe("段階", () => {
@@ -236,7 +238,7 @@ describe("API", () => {
 // ランキングのテストより後に置く（ここで保存した投稿がランキングに混ざらないように）
 describe("連投の制限", () => {
 	const post = (ip) => SELF.fetch("http://example.com/api/buzz", {
-		method: "POST", headers: { "cf-connecting-ip": ip }, body: JSON.stringify({ text: "連投テスト" }),
+		method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": ip }, body: JSON.stringify({ text: "連投テスト" }),
 	});
 	const saved = async () => (await env.DB.prepare("SELECT COUNT(*) AS n FROM buzzes WHERE text = '連投テスト'").first()).n;
 
@@ -260,22 +262,26 @@ describe("連投の制限", () => {
 		const leaky = { ...env, BURST_LIMIT: undefined, MINUTE_LIMIT: undefined };   // 本番で数え漏らしたときと同じ
 		const codes = [];
 		for (let k = 0; k < 8; k++) {
-			const req = new Request("http://example.com/api/buzz", { method: "POST", headers: { "cf-connecting-ip": "203.0.113.9" }, body: JSON.stringify({ text: "" }) });
+			const req = new Request("http://example.com/api/buzz", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.9" }, body: JSON.stringify({ text: "" }) });
 			codes.push((await worker.fetch(req, leaky)).status);
 		}
 		expect(codes).toEqual([400, 400, 400, 400, 429, 429, 429, 429]);   // 中身が空でも数える（保存はしない）
 	});
 
-	it("合言葉の総当たりも 1分に15回で止まる", async () => {
+	it("合言葉の総当たりは、10回間違えると止まる（そのあとは正しい合言葉でも通さない）", async () => {
 		const codes = [];
-		for (let k = 0; k < 31; k++) {
+		for (let k = 0; k < 14; k++) {
 			const res = await SELF.fetch("http://example.com/api/admin/check", {
-				method: "POST", headers: { "cf-connecting-ip": "203.0.113.3" }, body: JSON.stringify({ key: "guess" + k }),
+				method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.3" }, body: JSON.stringify({ key: "guess" + k }),
 			});
 			codes.push(res.status);
 		}
-		expect(codes.slice(0, 15).every((c) => c === 403)).toBe(true);
-		expect(codes.slice(15).every((c) => c === 429)).toBe(true);
+		expect(codes.slice(0, 10).every((c) => c === 403)).toBe(true);
+		expect(codes.slice(10).every((c) => c === 429)).toBe(true);
+		const right = await SELF.fetch("http://example.com/api/admin/check", {
+			method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.3" }, body: JSON.stringify({ key: env.ADMIN_KEY }),
+		});
+		expect(right.status).toBe(429);
 	});
 });
 
@@ -284,25 +290,33 @@ describe("ランキングに出さない投稿（下ネタ・URL）", () => {
 	it("下ネタ・差別語・URL は引っかかる。空白や全角・半角カナでごまかしても拾う", () => {
 		const bad = ["ちんこ", "パチンちんこここ", "うんちんこうんちんこ", "おちんちん！？", "ちんぽちんぽ", "ﾁﾝｺ", "ち ん こ", "ち・ん・こ",
 			"チンコ", "おまんこ漬け", "オマンコ", "手コキして", "しょーくんの精子は緑色", "ゴムしてるよねッ!?", "nigger", "SEX",
-			"https://example.com", "ｈｔｔｐｓ：／／ｅｘａｍｐｌｅ．ｃｏｍ", "www.example.jp", "pornhub.com を見て", "nhentai"];
+			"https://example.com", "ｈｔｔｐｓ：／／ｅｘａｍｐｌｅ．ｃｏｍ", "www.example.jp", "pornhub.com を見て", "nhentai",
+			"h t t p s : / / example", "example。com", "youtu.be/abc", "bit.ly/abc", "090-1234-5678", "０３（１２３４）５６７８", "test@example.com", "@someone 消えろ", "おい ＠someone",
+			"a", "ああああ", "ww", "😂😂😂",
+			"ちンこ", "ち♡ん♡こ", "セッくす", "おマんこ", "キチガイ", "ガイジ", "○○小学校を爆破する", "〇〇を殺す", "死ね", "evil.xxx", "example . com", "090.1234.5678"];
 		bad.forEach((t) => expect(isUnlisted(t), t).toBe(true));
 	});
 	it("ふつうのツイートは引っかからない（似た字を含む言葉も）", () => {
 		const ok = ["月曜の朝、母に「起きなさい」と言われた。\n日曜だった。", "ちんちん電車に乗った", "チンチン電車", "パチンコで負けた", "ぱちんこ玉",
 			"フェラーリかっこいい", "フェラガモの財布", "ヘアゴムしてるの忘れてた", "サラリーマンコースの説明会", "ヒューマンコメディが好き",
 			"グレイプバインのライブ", "精神的にきつい", "中出身です", "うんこ漢字ドリル", "インコはウンコしないらしいね", "漫湖公園を散歩",
-			"Essexに留学した", "sextetの演奏", "Wカップ見てた", "node.jsでアプリ作った", "ver.2.0になった", "ふとんがふっとんだ"];
+			"Essexに留学した", "sextetの演奏", "Wカップ見てた", "node.jsでアプリ作った", "ver.2.0になった", "ふとんがふっとんだ",
+			"0時に寝た", "2026-10-30の朝", "1000000円ほしい", "電話番号を忘れた", "メールアドレスを変えた", "3人で行った", "@マークの打ち方", "朝ごはん抜いた",
+			"尊くて死ねる", "リア充爆発しろ", "必殺技を覚えた", "殺虫剤を買った", "チョンマゲの侍", "聞きちがいだった", "それ、ちがいじゃん", "外国人のガイジンさん",
+			"Mr.Childrenを聴く", "Mr.Big最高", "Dr.STONEを読んだ", "test.pyを直した", "朝9.5時間寝た", "してまんねん"];
 		ok.forEach((t) => expect(isUnlisted(t), t).toBe(false));
 	});
 	it("バズ神の講評とリプライ（ふつうの文章 5000個あまり）は1つも引っかからない", () => {
 		const lines = [...Object.values(BASE_COMMENTS).flat(), ...Object.values(LEVEL_REPLIES).flat().map((r) => r[2]),
 			...Object.values(THEME_COMMENTS).flatMap((o) => Object.values(o).flat()), ...Object.values(THEME_REPLIES).flatMap((o) => Object.values(o).flat().map((r) => r[2]))];
 		expect(lines.length).toBeGreaterThan(5000);
-		expect(lines.filter(isUnlisted)).toEqual([]);
+		// 「……じゃ。」のように文字が2種類以下のセリフは「中身がない」判定の対象なので外す。見たいのは言葉の誤判定
+		const wordy = (l) => new Set(l.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")).size >= 3;
+		expect(lines.filter(wordy).filter(isUnlisted)).toEqual([]);
 	});
 
 	const post = (text, ip) => SELF.fetch("http://example.com/api/buzz", {
-		method: "POST", headers: { "cf-connecting-ip": ip }, body: JSON.stringify({ text }),
+		method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": ip }, body: JSON.stringify({ text }),
 	}).then((r) => r.json());
 	const list = async (path) => (await (await SELF.fetch("http://example.com" + path)).json()).map((r) => r.text);
 
@@ -328,7 +342,7 @@ describe("ランキングに出さない投稿（下ネタ・URL）", () => {
 	});
 	it("いいね数もバズ力もいちばん上の投稿でも、一覧に出さないものはランキングに入らない", async () => {
 		await env.DB.exec(CREATE_TABLE);
-		const add = (text, likes, unlisted) => env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets, unlisted) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		const add = (text, likes, unlisted) => env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets, unlisted, stage) VALUES (?, ?, ?, ?, ?, ?, ?, 16)")
 			.bind(text, "真・家庭内", "🏡", 100, likes, 0, unlisted);
 		await env.DB.batch([add("隠す投稿", 9e70, 1), add("見せる投稿", 8e70, 0)]);
 		for (const path of ["/api/ranking", "/api/ranking?by=score"]) {
@@ -336,5 +350,198 @@ describe("ランキングに出さない投稿（下ネタ・URL）", () => {
 			expect(texts[0], path).toBe("見せる投稿");
 			expect(texts, path).not.toContain("隠す投稿");
 		}
+	});
+});
+
+// いちばん後ろに置く（ここで保存した投稿がほかのテストに混ざらないように）
+describe("荒らし対策", () => {
+	const JSON_HEADERS = { "content-type": "application/json" };
+	const send = (path, body, headers = {}) => SELF.fetch("http://example.com" + path, {
+		method: "POST", headers: { ...JSON_HEADERS, ...headers }, body: typeof body === "string" ? body : JSON.stringify(body),
+	});
+	const add = (text, likes, who, stage = 0) => env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets, who, stage) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+		.bind(text, "村", "🌾", 20, likes, 0, who, stage);
+	const get = async (path) => (await SELF.fetch("http://example.com" + path)).json();
+
+	it("よそのサイトからの投稿（JSON でない・送信元が違う）は断る。同じサイトからは通る", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		const body = JSON.stringify({ text: "よそから" });
+		const plain = await SELF.fetch("http://example.com/api/buzz", { method: "POST", headers: { "content-type": "text/plain", "cf-connecting-ip": "198.51.100.1" }, body });
+		expect(plain.status).toBe(403);
+		const noType = await SELF.fetch("http://example.com/api/buzz", { method: "POST", headers: { "cf-connecting-ip": "198.51.100.1" }, body });
+		expect(noType.status).toBe(403);
+		const other = await send("/api/buzz", body, { origin: "https://evil.example", "cf-connecting-ip": "198.51.100.1" });
+		expect(other.status).toBe(403);
+		const same = await send("/api/buzz", body, { origin: "http://example.com", "cf-connecting-ip": "198.51.100.1" });
+		expect(same.status).toBe(200);
+		expect((await send("/api/admin/check", { key: env.ADMIN_KEY }, { origin: "https://evil.example", "cf-connecting-ip": "198.51.100.1" })).status).toBe(403);
+	});
+
+	it("おかしな本文でも落ちない（null・配列・壊れた JSON・巨大な本文・ふつうでない型）", async () => {
+		const bodies = ["null", "[]", "123", '"x"', "{壊れた", "", JSON.stringify({ text: "あ".repeat(100000) }), JSON.stringify({ text: { a: 1 }, seen: "x", posts: "y" })];
+		for (const [i, b] of bodies.entries()) {
+			const res = await send("/api/buzz", b, { "cf-connecting-ip": "198.51.100.1" + i });
+			expect([200, 400], b.slice(0, 20)).toContain(res.status);
+			expect((await res.json()).error ?? "ok").toBeTruthy();
+		}
+		const seen = await send("/api/buzz", { text: "見た段階がでたらめ", seen: [1e9, -1, "a", null, { x: 1 }, 1.5], posts: 1e99 }, { "cf-connecting-ip": "198.51.100.30" });
+		expect(seen.status).toBe(200);
+	});
+
+	it("文章をきれいにする：見えない文字・向きを変える文字・Zalgo・壊れた文字を消し、絵文字と日本語は残す", () => {
+		expect(cleanText("あ\u202Eいう\u200B\u2066え\uFEFF")).toBe("あいうえ");
+		expect(cleanText("\u3164\u2800\u200B  ")).toBe("");
+		expect(cleanText("z" + "\u0300".repeat(40) + "a")).toBe("z\u0300\u0300\u0300a");
+		expect(cleanText("👨‍👩‍👧 か\u3099 1️⃣")).toBe("👨‍👩‍👧 か\u3099 1️⃣");
+		expect(cleanText("壊れ\uD83D")).toBe("壊れ");
+		expect(() => encodeURIComponent(cleanText("\uD83D壊れ\uDE00た"))).not.toThrow();
+		expect(cleanText("あ\n\n\n\n\nい\r\nう")).toBe("あ\n\nい\nう");
+		expect(cleanText("😂".repeat(100)).length).toBeLessThanOrEqual(140);
+		expect(() => encodeURIComponent(cleanText("😂".repeat(100)))).not.toThrow();
+		expect(cleanText(null)).toBe("");
+	});
+
+	it("IPv6 は回線（/64）単位で同じ人とみなす。住所を変えても連投の制限をすり抜けられない", async () => {
+		expect(personKey("2001:db8:1:2:3:4:5:6")).toBe(personKey("2001:0DB8:0001:0002:aaaa:bbbb:cccc:dddd"));
+		expect(personKey("2001:db8:1:2::1")).toBe(personKey("2001:db8:1:2:ffff::"));
+		expect(personKey("2001:db8:1:2::1")).not.toBe(personKey("2001:db8:1:3::1"));
+		expect(personKey("203.0.113.5")).toBe("203.0.113.5");
+		expect(personKey("::ffff:203.0.113.5")).toBe("203.0.113.5");
+		const codes = [];
+		for (let k = 1; k <= 6; k++) codes.push((await send("/api/buzz", { text: "" }, { "cf-connecting-ip": "2001:db8:aaaa:bbbb::" + k })).status);
+		expect(codes).toEqual([400, 400, 400, 400, 429, 429]);
+	});
+
+	it("D1 が止まっても（無料枠を使い切っても）投稿の結果は返り、一覧は最後に読めたものを出す", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await add("止まる前の投稿", 1e100, "before-stop").run();
+		const good = await get("/api/ranking");
+		expect(good[0].text).toBe("止まる前の投稿");
+		await clearLists("http://example.com");
+		const broken = { prepare() { throw new Error("D1 DB exceeded its daily limit"); } };
+		const brokenEnv = { ...env, DB: broken };
+		const post = await worker.fetch(new Request("http://example.com/api/buzz", { method: "POST", headers: { ...JSON_HEADERS, "cf-connecting-ip": "198.51.100.50" }, body: JSON.stringify({ text: "止まっているときの投稿" }) }), brokenEnv);
+		expect(post.status).toBe(200);
+		expect((await post.json()).comment).toBeTruthy();
+		const list = await worker.fetch(new Request("http://example.com/api/ranking"), brokenEnv);
+		expect(list.status).toBe(200);
+		expect((await list.json())[0].text).toBe("止まる前の投稿");
+		const history = await worker.fetch(new Request("http://example.com/api/history?x=1"), brokenEnv);
+		expect(history.status).toBe(200);
+		await clearLists("http://example.com");
+	});
+
+	it("一覧は1人1件・同じ文章は1件。1人では埋められない", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await env.DB.batch([add("荒らし1", 9e110, "troll"), add("荒らし2", 8e110, "troll"), add("荒らし3", 7e110, "troll"),
+			add("コピペ", 6e110, "a1"), add("コ ピ ペ", 5e110, "a2"), add("ふつうの人", 4e110, "a3")]);
+		const texts = (await get("/api/ranking")).map((r) => r.text);
+		expect(texts.slice(0, 3)).toEqual(["荒らし1", "コピペ", "ふつうの人"]);
+		const rows = await get("/api/history");
+		expect(rows.filter((r) => r.text.startsWith("荒らし"))).toHaveLength(1);
+		expect(JSON.stringify(rows)).not.toContain("troll");   // 印そのものは外に出さない
+	});
+
+	it("バズ力ランキングは段階の番号で並ぶ（投稿のときに stage も保存する）", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await env.DB.batch([add("上の段階", 1, "s1", 16), add("下の段階", 9e115, "s2", 15)]);
+		const byScore = (await get("/api/ranking?by=score")).map((r) => r.text);
+		expect(byScore.indexOf("上の段階")).toBeLessThan(byScore.indexOf("下の段階"));
+		const res = await send("/api/buzz", { text: "段階を保存するテスト" }, { "cf-connecting-ip": "198.51.100.60" });
+		const saved = await env.DB.prepare("SELECT stage, who FROM buzzes WHERE text = ?").bind("段階を保存するテスト").first();
+		expect(saved.stage).toBe((await res.json()).levelIndex);
+		expect(saved.who).toMatch(/^[0-9a-f]{16}$/);
+		expect(saved.who).not.toContain("198.51");
+	});
+
+	it("一覧はためておく。余計な ?x=1 を付けても D1 を読みに行かない", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await add("ためる前", 9e120, "c1").run();
+		expect((await get("/api/ranking"))[0].text).toBe("ためる前");
+		await add("あとから", 9e125, "c2").run();
+		expect((await get("/api/ranking"))[0].text).toBe("ためる前");
+		expect((await get("/api/ranking?x=" + Math.random()))[0].text).toBe("ためる前");
+		await clearLists("http://example.com");
+		expect((await get("/api/ranking"))[0].text).toBe("あとから");
+		const res = await SELF.fetch("http://example.com/api/ranking");
+		expect(res.headers.get("cache-control")).toContain("max-age");
+		expect((await SELF.fetch("http://example.com/api/ranking", { method: "POST" })).status).toBe(405);
+	});
+
+	it("「これまで ○ 件」は全件読まずに出す（消した連投の分は引く）", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await env.DB.prepare("INSERT INTO buzzes (id, text, level, emoji, score, likes, retweets) VALUES (5000, 'x', '村', '🌾', 20, 1, 0)").run();
+		const stats = await get("/api/stats");
+		expect(stats).toEqual({ posts: 5000 - 1959 });
+	});
+
+	it("テストモードの「隠す」：合言葉がないと隠せない。1件だけ／同じ人をぜんぶ隠せる", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await env.DB.batch([add("隠される1", 9e130, "h1"), add("隠される2", 8e130, "h1"), add("残る", 7e130, "h2"), add("1件だけ隠す", 6e130, "h3")]);
+		const idOf = (text) => env.DB.prepare("SELECT id FROM buzzes WHERE text = ?").bind(text).first("id");
+		const hiddenOf = (text) => env.DB.prepare("SELECT unlisted FROM buzzes WHERE text = ?").bind(text).first("unlisted");
+		const ip = { "cf-connecting-ip": "198.51.100.70" };
+		expect((await send("/api/admin/hide", { key: "違う", id: await idOf("残る") }, { "cf-connecting-ip": "198.51.100.71" })).status).toBe(403);
+		expect(await hiddenOf("残る")).toBe(0);
+		expect((await send("/api/admin/hide", { key: env.ADMIN_KEY, id: "1 OR 1=1" }, ip)).status).toBe(400);
+		const one = await send("/api/admin/hide", { key: env.ADMIN_KEY, id: await idOf("1件だけ隠す") }, ip);
+		expect((await one.json()).hidden).toBe(1);
+		const all = await send("/api/admin/hide", { key: env.ADMIN_KEY, id: await idOf("隠される1"), all: true }, ip);
+		expect((await all.json()).hidden).toBe(2);
+		expect(await hiddenOf("隠される2")).toBe(1);
+		expect(await hiddenOf("残る")).toBe(0);
+		const texts = (await get("/api/ranking")).map((r) => r.text);   // ためていた一覧もすぐ入れ替わる
+		expect(texts).toContain("残る");
+		expect(texts).not.toContain("隠される1");
+	});
+
+	it("画面には守りのヘッダーが付く。script の nonce は毎回変わり、CSP と一致する", async () => {
+		const a = await SELF.fetch("http://example.com/"), b = await SELF.fetch("http://example.com/");
+		const csp = a.headers.get("content-security-policy");
+		expect(csp).toContain("frame-ancestors 'none'");
+		expect(csp).toContain("default-src 'none'");
+		expect(csp).not.toMatch(/script-src[^;]*unsafe/);
+		const nonce = csp.match(/'nonce-([0-9a-f]+)'/)[1];
+		const html = await a.text();
+		expect(html).toContain('<script nonce="' + nonce + '">');
+		expect(html.match(/<script/g)).toHaveLength(1);
+		expect(b.headers.get("content-security-policy")).not.toContain(nonce);
+		expect(a.headers.get("x-content-type-options")).toBe("nosniff");
+		expect(a.headers.get("x-frame-options")).toBe("DENY");
+		expect((await SELF.fetch("http://example.com/api/stats")).headers.get("x-content-type-options")).toBe("nosniff");
+	});
+
+	it("長さを書かずに巨大な本文を送られても、読みすぎず空として扱う", async () => {
+		const big = new ReadableStream({
+			start(c) { for (let i = 0; i < 5; i++) c.enqueue(new TextEncoder().encode("x".repeat(2000))); c.close(); },
+		});
+		const res = await SELF.fetch("http://example.com/api/buzz", { method: "POST", headers: { ...JSON_HEADERS, "cf-connecting-ip": "198.51.100.95" }, body: big, duplex: "half" });
+		expect(res.status).toBe(400);
+		const notText = await send("/api/buzz", { text: { a: 1 } }, { "cf-connecting-ip": "198.51.100.96" });
+		expect(notText.status).toBe(400);
+	});
+
+	it("見えない文字は Unicode にまだない番号のものも消す", () => {
+		expect(cleanText("ち" + String.fromCodePoint(0x2065) + "ん" + String.fromCodePoint(0xfff0, 0xf0000) + "こ")).toBe("ちんこ");
+	});
+
+	it("1人が1日に保存できるのは60件まで。超えても結果は返し、保存はしない", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		const ip = "198.51.100.97";
+		const gate = env.GATE.get(env.GATE.idFromName("buzz:" + ip));
+		for (let k = 0; k < 60; k++) expect(await gate.canSave()).toBe(true);
+		const res = await send("/api/buzz", { text: "上限を超えた投稿です" }, { "cf-connecting-ip": ip });
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.comment).toBeTruthy();
+		expect(data.unlisted).toBe(true);
+		const saved = await env.DB.prepare("SELECT COUNT(*) AS n FROM buzzes WHERE text = ?").bind("上限を超えた投稿です").first("n");
+		expect(saved).toBe(0);
+	});
+
+	it("思わぬエラーでも中身を見せない", async () => {
+		const res = await worker.fetch(new Request("http://example.com/api/admin/check", { method: "POST", headers: { ...JSON_HEADERS, "cf-connecting-ip": "198.51.100.90" }, body: "{}" }), { ...env, GATE: { idFromName() { throw new Error("秘密の中身"); } } });
+		expect(res.status).toBe(500);
+		expect(await res.text()).not.toContain("秘密の中身");
 	});
 });
