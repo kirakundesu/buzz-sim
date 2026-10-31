@@ -54,14 +54,14 @@ export const LEVELS = [
 // ── ツイートの「パターン」を見分けるキーワード ──
 export const THEMES = {
   work:   { label: "仕事",     re: /仕事|上司|会社|会議|残業|月曜|出社|リモート|給料|社畜|退勤|部長|課長|取引先|有給|転職/ },
-  family: { label: "家族",     re: /母|父|妹|弟|姉|兄|おかん|オカン|おとん|親|家族|子供|息子|娘|嫁|夫|じいちゃん|ばあちゃん/ },
+  family: { label: "家族",     re: /母(?!音|校|国)|父|妹|弟|姉|兄|おかん|オカン|おとん|親(?!切|指|友|知らず)|家族|子供|息子|娘|嫁|(?<!大丈|工|丈)夫|じいちゃん|ばあちゃん/ },
   love:   { label: "恋愛",     re: /恋|彼氏|彼女|好きな人|デート|告白|失恋|既読|婚活|マッチング|元カレ|元カノ|片思い/ },
   food:   { label: "食べ物",   re: /ご飯|ごはん|飯|ラーメン|カレー|寿司|食べ|ダイエット|カロリー|コンビニ|焼肉|お腹|腹減|おやつ|ビール/ },
-  animal: { label: "動物",     re: /猫|犬|ねこ|いぬ|ネコ|イヌ|ペット|ハムスター|うさぎ|にゃ|わん|インコ/ },
-  sleep:  { label: "睡眠",     re: /眠|寝|布団|ふとん|起き|二度寝|夜更かし|目覚まし|朝起|徹夜/ },
-  otaku:  { label: "推し活",   re: /推し|オタク|ライブ|ガチャ|アニメ|ゲーム|課金|声優|新刊|コミケ|ソシャゲ/ },
+  animal: { label: "動物",     re: /猫|犬|ねこ(?!ろ)|いぬ|ネコ|イヌ|ペット(?!ボトル)|ハムスター|うさぎ|(?<![ぐふん])にゃ|わんこ|わんちゃん|わんわん|インコ/ },
+  sleep:  { label: "睡眠",     re: /眠|寝|布団|ふとん|(?<![がもか])起き|二度寝|夜更かし|目覚まし|朝起|徹夜/ },
+  otaku:  { label: "推し活",   re: /推し|オタク|(?<!ド)ライブ|ガチャ|アニメ|ゲーム|課金|声優|新刊|コミケ|ソシャゲ/ },
   self:   { label: "自虐",     re: /俺なんて|私なんて|陰キャ|ぼっち|モテない|才能ない|ダメ人間|自分だけ|友達いない|非モテ|運動音痴/ },
-  tech:   { label: "IT",       re: /AI|ＡＩ|プログラム|エンジニア|コード|バグ|サービス|アプリ|Web|ウェブ|Claude|ChatGPT|デプロイ|サーバー/ },
+  tech:   { label: "IT",       re: /AI|ＡＩ|プログラム|エンジニア|(?<!レ|バー|QR|ＱＲ)コード|バグ|サービス(?!エリア|精神)|アプリ|Web|ウェブ|Claude|ChatGPT|デプロイ|サーバー/ },
   school: { label: "学校",     re: /学校|先生|授業|テスト|宿題|部活|受験|大学|単位|レポート|教室/ },
 };
 
@@ -71,31 +71,34 @@ export const THEMES = {
 // ふつうのツイートを巻き込まないように、言葉は絞ってある（パチンコ・ちんちん電車・フェラーリ・ヘアゴム などは拾わない）
 // うんこ・うんち は子どもの笑いとしてよくあるので入れていない
 export const NG_WORDS = [
-  /(?<![ぱパ])ちんこ/, /(?<!パ)チンコ/, /ちんぽ|チンポ/, /ちんちん(?!電車)|チンチン(?!電車)/,
-  /まんこ|マンコ(?![ァ-ヴー])/, /手コキ|てこき|手マン/, /ヤリマン|ヤリチン|やりまん|やりちん/,
-  /セックス|せっくす/, /オナニ|おなにー/, /フェラ(?![ァ-ヴー])/, /中出し/, /勃起/, /射精|精液|精子/,
-  /(?<!グ)レイプ/, /(?<!ヘア|髪)ゴムしてる/,
+  /(?<![ぱパがかこばガカコバ])ちんこ(?!れ)/, /(?<![パガカコバ])チンコ/, /チソコ|マソコ/, /ちんぽ|チンポ/, /ちんちん(?!電車)|チンチン(?!電車)/,
+  /(?<!\p{sc=Han})まんこ/u, /マンコ(?![ァ-ヴー])/, /手コキ|てこき(?!使|下ろ|おろ|つか)|手マン(?![ァ-ヴー])/, /ヤリマン|ヤリチン|やりまん|やりちん/,
+  /(?<!ユニ|サ|エ|ノン)セックス|(?<!ゆに|さ|え|のん)せっくす/, /オナニ|おなにー/, /フェラ(?![ァ-ヴー])|ふぇら(?!ーり)/, /(?<![年日途前後今夜週月])中出し|なかだし/, /勃起/, /射精|精液|精子/,
+  /(?<![グドク])レイプ|(?<![ぐどくす])れいぷ/, /(?<!ヘア|髪)ゴムしてる/,
   /porn|hentai|xvideos|fuck|\bsex\b|nigg(?:er|a)/,
-  /キチガイ|気違い|ガイジ(?!ン)|池沼|チョン(?!マゲ|ボ)|支那人|シナ人/,   // 差別語（ひらがなの「きちがい」は「聞きちがい」があるので入れない）
-  /殺す|殺害|爆破|放火|死ね(?![るんなま])/,   // 脅し。犯行予告のような投稿を、みんなの一覧に載せない（「尊くて死ねる」「死ねん」は通す）
+  /キチガイ|気違い|ガイジ(?!ン)|池沼|(?<![ァ-ヴー])チョン(?![ァ-ヴー・])|支那人|シナ人/,   // 差別語（ひらがなの「きちがい」は「聞きちがい」があるので入れない）
+  /(?<![相悩黙抹忙笑併必])殺(?:す|せ|そう|して|します|したい|害)|(?<![とこごおひ])ころす(?![ごっぎきべ])|爆破|放火|死ね(?![るんなまた])|タヒね/,   // 脅し。犯行予告のような投稿を、みんなの一覧に載せない（「相殺する」「尊くて死ねる」「死ねん」は通す）
 ];
 // カタカナとひらがなを混ぜたごまかし（「ちンこ」「セッくす」）用。全部ひらがなにしてから比べる
 const toHiragana = (s) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
-const FOLDED_NG = [/(?<!ぱ)ちんこ/, /ちんぽ/, /ちんちん(?!電車|でんしゃ)/, /まんこ(?![ぁ-ゖー])/, /てこき/, /やりまん|やりちん/, /せっくす/, /おなにー/];
+const FOLDED_NG = [/(?<![ぱがかこば])ちんこ(?!れ)/, /ちんぽ/, /ちんちん(?!電車|でんしゃ)/, /(?<!\p{sc=Han})まんこ(?![ぁ-ゖー])/u, /てこき(?!使|下ろ|おろ|つか)/, /やりまん|やりちん/, /(?<!ゆに|さ|え|のん)せっくす/, /おなにー/];
 // URL（よそのサイトへ誘う投稿）。「pornhub.com」のような http なしの書き方も拾う
-export const URL_RE = /https?:|www\.|[a-z0-9-]+\.(?:com|net|org|jp|io|xyz|me|tv|ly|cc|to|gg|info|biz|site|app|dev|co|ru|cn|kr|tokyo|shop|top|link|club|online|live|page|vip|be|gl|ai|fm|us|uk|de|fr|br|tk|ml|cf|ga|pw|icu|lol|moe)\b/;
+export const URL_RE = /https?:|(?<![a-z0-9])www\.[a-z0-9]|(?<![a-z0-9-])(?=[0-9-]*[a-z])[a-z0-9-]+\.(?:com|net|org|jp|io|xyz|me|tv|ly|cc|to|gg|info|biz|site|app|dev|co|ru|cn|kr|tokyo|shop|top|link|club|online|live|page|vip|be|gl|ai|fm|us|uk|de|fr|br|tk|ml|cf|ga|pw|icu|lol|moe)\b/;
 // 上にない短い終わり方（evil.xxx）も URL とみなす。ファイル名や「Mr.Big」「Dr.Who」は除く
-const ANY_DOMAIN_RE = /[a-z0-9-]+(?<!\b(?:mr|mrs|ms|dr|st|mt|vs|no|jr))\.(?!(?:js|ts|py|md|sh|rb|go|rs|cs|css|txt|exe|png|jpg|gif|pdf|zip|mp3|mp4|am|pm)\b)[a-z]{2,3}\b/;
+const ANY_DOMAIN_RE = /(?<![a-z0-9-])(?=[0-9-]*[a-z])[a-z0-9-]+(?<!\b(?:mr|mrs|ms|dr|st|mt|vs|no|jr|lv|ver|feat|ft|vol))\.(?!(?:js|ts|py|md|sh|rb|go|rs|cs|css|txt|exe|png|jpg|gif|pdf|zip|mp3|mp4|am|pm)\b)[a-z]{2,3}\b/;
+// 「example . com」「example。com」のように間を空けた書き方用。英語の文の区切りと見分けがつかないもの（me to be top live link page app）は外す
+const SPACED_URL_RE = /(?<![a-z0-9-])(?=[0-9-]*[a-z])[a-z0-9-]+\.(?:com|net|org|jp|io|xyz|tv|ly|cc|gg|info|biz|site|dev|co|ru|cn|kr|tokyo|shop|club|online|vip|gl|fm|us|uk|de|fr|br|tk|ml|cf|ga|pw|icu|lol|moe)\b/;
 // 個人情報と名指し（メールアドレス・@宛先・電話番号）。だれかの連絡先や、名指しの攻撃をみんなの一覧に載せない
 export const PERSONAL_RE = /[a-z0-9._%+-]+@[a-z0-9-]+\.[a-z]{2,}|(?:^|[^a-z0-9_])@[a-z0-9_]{2,15}(?![a-z0-9_])/;
 const PHONE_RE = /(?<!\d)0\d{9,10}(?!\d)/;
 // 一覧に出さない投稿なら true（tools/unlist-old.mjs からも使うので、Workers 専用のものに頼らずここに置く）
 export function isUnlisted(text) {
-  const n = text.normalize("NFKC").toLowerCase().replace(/。/g, ".");   // 「example。com」も URL として見る
+  const n = text.normalize("NFKC").toLowerCase();
+  const dotted = n.replace(/。/g, ".").replace(/\s*\.\s*/g, ".");   // 「example。com」「example . com」も URL として見る
   const s = n.replace(/[^\p{L}\p{N}]/gu, "");   // 間に入れた空白や記号（「ち ん こ」「ち♡ん♡こ」）を抜く
   if (new Set(s).size < 3) return true;   // 「a」「ああああ」のような中身のない投稿（連打の荒らしを一覧に出さない）
   if (PHONE_RE.test(n.replace(/[\s().\-‐－ー]/g, ""))) return true;
-  if (URL_RE.test(n) || URL_RE.test(n.replace(/\s*\.\s*/g, ".")) || ANY_DOMAIN_RE.test(n) || /https?/.test(s) && /https?:\s*\/\s*\//.test(n.replace(/\s/g, ""))) return true;
+  if (URL_RE.test(n) || SPACED_URL_RE.test(dotted) || ANY_DOMAIN_RE.test(n.replace(/。(?=[a-z])/g, ".")) || /https?/.test(s) && /https?:\s*\/\s*\//.test(n.replace(/\s/g, ""))) return true;
   const f = toHiragana(s);
   return PERSONAL_RE.test(n) || NG_WORDS.some((re) => re.test(n) || re.test(s)) || FOLDED_NG.some((re) => re.test(f));
 }

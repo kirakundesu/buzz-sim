@@ -1,11 +1,13 @@
 // npx vitest run で実行する
 import { SELF, env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
-import worker, { simulateBuzz, score, superLikes, cleanText, personKey, clearLists } from "../src/index.js";
+import worker, { simulateBuzz, score, superLikes, cleanText, personKey, clearLists, levelFromScore } from "../src/index.js";
 import { LEVELS, BASE_COMMENTS, LEVEL_REPLIES, THEME_COMMENTS, THEME_REPLIES, isUnlisted } from "../src/data.js";
+import MIGRATE_COUNT from "../tools/migrate-count.sql?raw";
 
-// 本番の D1 と同じ形（unlisted・stage・who は後から ALTER TABLE で足した列）
-const CREATE_TABLE = "CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT, unlisted INTEGER NOT NULL DEFAULT 0, stage INTEGER NOT NULL DEFAULT 0, who TEXT)";
+// 本番の D1 と同じ形（unlisted・stage・who は後から ALTER TABLE で足した列。件数のトリガーは本物の移行ファイルを流す）
+const COUNT_SQL = MIGRATE_COUNT.split(/\r?\n/).filter((line) => line.trim() && !line.startsWith("--")).join("\n");
+const CREATE_TABLE = "CREATE TABLE IF NOT EXISTS buzzes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, level TEXT NOT NULL, emoji TEXT NOT NULL, score INTEGER NOT NULL, likes INTEGER NOT NULL, retweets INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), comment TEXT, unlisted INTEGER NOT NULL DEFAULT 0, stage INTEGER NOT NULL DEFAULT 0, who TEXT)\n" + COUNT_SQL;
 // 一覧は少しの間ためておくので、テストごとに空にする
 beforeEach(() => clearLists("http://example.com"));
 const OPENER = { roast: "は？", cold: "あー……", warm: "ほう……", good: "おお！", praise: "ちょっと待って" };
@@ -68,6 +70,38 @@ describe("採点", () => {
 		expect(top).toBeLessThanOrEqual(8);
 	});
 
+	it("ふつうの言葉を毒や連打にしない。テーマも取り違えない", () => {
+		const same = (a, b) => { const x = Array.from({ length: 12 }, () => score(a).total), y = Array.from({ length: 12 }, () => score(b).total); return Math.abs(x.reduce((p, q) => p + q) - y.reduce((p, q) => p + q)) / 12; };
+		for (const [a, b] of [["カステラ美味しい", "ケーキ美味しい"], ["ゴミ出しの日を忘れた", "資源の日を忘れた"], ["今日もカスタマーサポートで怒られた", "今日もコールセンターで怒られた"]]) expect(same(a, b), a).toBeLessThan(9);
+		expect(score("面白すぎて草wwwwww").features.spam).toBe(false);
+		expect(score("そう………………").features.spam).toBe(false);
+		expect(score("やったーーーーーー").features.spam).toBe(false);
+		expect(score("ああああああああ").features.spam).toBe(true);
+		expect(score("うるせえカス").features.toxic).toBe(true);
+		expect(score("大丈夫じゃない").features.themes).not.toContain("family");
+		expect(score("親切な人に会った").features.themes).not.toContain("family");
+		expect(score("事件が起きた").features.themes).not.toContain("sleep");
+		expect(score("レコードを買った").features.themes).not.toContain("tech");
+		expect(score("朝起きたら昼だった").features.themes).toContain("sleep");
+		// 別の言葉の一部に引っかからない
+		for (const [text, theme] of [["変わんない", "animal"], ["思わんかった", "animal"], ["こんにゃく", "animal"], ["ぐにゃぐにゃ", "animal"], ["ペットボトル", "animal"], ["ねころんで", "animal"],
+			["ドライブに行く", "otaku"], ["何か起きた", "sleep"], ["QRコード", "tech"], ["バーコード", "tech"], ["サービスエリア", "tech"], ["母音", "family"], ["母校", "family"]]) expect(score(text).features.themes, text).not.toContain(theme);
+		// 本物はこれまでどおり拾う
+		for (const [text, theme] of [["猫がかわいい", "animal"], ["にゃーん", "animal"], ["うちのわんこ", "animal"], ["ペットを飼った", "animal"], ["ライブに行く", "otaku"], ["ソースコード", "tech"], ["母に怒られた", "family"]]) expect(score(text).features.themes, text).toContain(theme);
+		expect(score("尊くて死ねる").features.toxic).toBe(false);
+		expect(score("もう死ね").features.toxic).toBe(true);
+	});
+	it("長い文は拡散力が下がる（100文字まで 14、125文字まで 12、それより上 9）", () => {
+		const plain = (n) => "あいうえおかきくけこさしすせそたちつてとなにぬねの".repeat(6).slice(0, n);
+		expect(score(plain(100)).features.len).toBe(100);
+		const avg = (n) => Array.from({ length: 30 }, () => score(plain(n)).axes.spread).reduce((p, q) => p + q) / 30;
+		expect(avg(100)).toBeGreaterThan(avg(120));
+		expect(avg(120)).toBeGreaterThan(avg(135));
+	});
+	it("テストモードの点数は、どの段階でも各25点を超えない", () => {
+		LEVELS.forEach((l, i) => { const r = simulateBuzz("てすと", i); Object.values(r.axes).forEach((v) => expect(v, l.name).toBeLessThanOrEqual(25)); expect(r.score).toBe(Object.values(r.axes).reduce((p, q) => p + q)); });
+	});
+
 	it("バズの波は、まだ見ていない段階にだけ押し上げる", () => {
 		const text = "月曜の朝、母に「起きなさい」と言われた。\n日曜だった。";
 		const seen = LEVELS.map((l, i) => i).filter((i) => i !== 13);   // ∬… だけ見ていない
@@ -96,6 +130,20 @@ describe("採点", () => {
 			if (r.wave) targets.add(r.levelIndex);
 		}
 		expect(targets.size).toBeGreaterThanOrEqual(5);   // 太陽系だけでなく、いろいろなシークレットに飛ぶ
+	});
+	it("∬… は、ほかのシークレットをぜんぶ解放するまで、波でも点数でも出ない", () => {
+		const normal = [0, 1, 2, 3, 4, 5, 6], secrets = [7, 8, 9, 10, 11, 12];
+		for (const lacking of secrets) {
+			const seen = [...normal, ...secrets.filter((i) => i !== lacking)];
+			for (let k = 0; k < 150; k++) expect(simulateBuzz("二度寝したら昼だった", null, { seen, posts: 99 }).levelIndex).not.toBe(13);
+			expect(levelFromScore(100, { seen, posts: 99 })).toBe(12);   // 点数が足りていても神で止まる
+		}
+		expect(levelFromScore(100, { seen: normal, posts: 0 })).toBe(12);
+		expect(levelFromScore(100, { seen: [...normal, ...secrets], posts: 0 })).toBe(13);
+		expect(levelFromScore(100, { seen: [13], posts: 0 })).toBe(13);   // 一度届いた人はそのまま
+		// ぜんぶ解放した人には、波で出る
+		const hits = Array.from({ length: 300 }, () => simulateBuzz("二度寝したら昼だった", null, { seen: [...normal, ...secrets], posts: 40 }));
+		expect(hits.some((r) => r.levelIndex === 13)).toBe(true);
 	});
 
 	it("テストモードで指定した段階になり、講評とリプライが付く", () => {
@@ -129,6 +177,20 @@ describe("エンドコンテンツ", () => {
 		const second = run([...main, ends[0]], 300).filter((r) => r.end);
 		expect(second.length).toBeGreaterThan(0);
 		second.forEach((r) => expect(r.level).toBe("創世"));
+	});
+	it("真・家庭内は、実際に家庭内に着いたことがある人にだけ出る", () => {
+		const two = [...main, ends[0], ends[1]];
+		const lucky = (seen, home, n = 600) => Array.from({ length: n }, () => simulateBuzz("二度寝したら昼だった", null, { seen, posts: 50, home }));
+		for (const r of lucky(two, false)) expect(r.end).toBe(false);
+		const opened = lucky(two, true).filter((r) => r.end);
+		expect(opened.length).toBeGreaterThan(0);
+		opened.forEach((r) => expect(r.level).toBe("真・家庭内"));
+		// 一度出た人は、着いた記録がなくても、また出ることがある（3つとも見たあとの低確率）
+		const again = lucky([...two, ends[2]], false, 2000).filter((r) => r.end);
+		expect(again.length).toBeGreaterThan(0);
+		// ヒントのとおり、中身のない投稿で家庭内に帰れる
+		const back = lucky.call(null, two, false, 0).concat(Array.from({ length: 300 }, () => simulateBuzz("あ", null, { seen: two, posts: 100 })));
+		expect(back.filter((r) => r.levelIndex === 0).length).toBeGreaterThan(100);
 	});
 	it("無は0いいね、真・家庭内は家族の3いいね", () => {
 		expect(simulateBuzz("てすと", ends[0]).likes).toBe(0);
@@ -222,8 +284,9 @@ describe("API", () => {
 	});
 
 	it("合言葉なしのテストモードは 403", async () => {
-		const res = await SELF.fetch("http://example.com/api/admin/test", { method: "POST", body: JSON.stringify({ key: "wrong", level: 12 }) });
+		const res = await SELF.fetch("http://example.com/api/admin/test", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "198.51.100.200" }, body: JSON.stringify({ key: "wrong", level: 12 }) });
 		expect(res.status).toBe(403);
+		expect((await res.json()).error).toBe("合言葉が違います");
 	});
 
 	it("トップページの HTML を返す", async () => {
@@ -293,7 +356,8 @@ describe("ランキングに出さない投稿（下ネタ・URL）", () => {
 			"https://example.com", "ｈｔｔｐｓ：／／ｅｘａｍｐｌｅ．ｃｏｍ", "www.example.jp", "pornhub.com を見て", "nhentai",
 			"h t t p s : / / example", "example。com", "youtu.be/abc", "bit.ly/abc", "090-1234-5678", "０３（１２３４）５６７８", "test@example.com", "@someone 消えろ", "おい ＠someone",
 			"a", "ああああ", "ww", "😂😂😂",
-			"ちンこ", "ち♡ん♡こ", "セッくす", "おマんこ", "キチガイ", "ガイジ", "○○小学校を爆破する", "〇〇を殺す", "死ね", "evil.xxx", "example . com", "090.1234.5678"];
+			"ちンこ", "ち♡ん♡こ", "セッくす", "おマんこ", "キチガイ", "ガイジ", "○○小学校を爆破する", "〇〇を殺す", "死ね", "evil.xxx", "example . com", "090.1234.5678",
+			"お前を殺します", "○○を殺してやる", "あいつ殺したい", "ぶっ殺してやる", "ころすぞ", "タヒね", "ふぇら", "れいぷ", "なかだし", "チソコ", "マソコ", "www.example", "がちんこ"].filter((t) => t !== "がちんこ");
 		bad.forEach((t) => expect(isUnlisted(t), t).toBe(true));
 	});
 	it("ふつうのツイートは引っかからない（似た字を含む言葉も）", () => {
@@ -303,7 +367,10 @@ describe("ランキングに出さない投稿（下ネタ・URL）", () => {
 			"Essexに留学した", "sextetの演奏", "Wカップ見てた", "node.jsでアプリ作った", "ver.2.0になった", "ふとんがふっとんだ",
 			"0時に寝た", "2026-10-30の朝", "1000000円ほしい", "電話番号を忘れた", "メールアドレスを変えた", "3人で行った", "@マークの打ち方", "朝ごはん抜いた",
 			"尊くて死ねる", "リア充爆発しろ", "必殺技を覚えた", "殺虫剤を買った", "チョンマゲの侍", "聞きちがいだった", "それ、ちがいじゃん", "外国人のガイジンさん",
-			"Mr.Childrenを聴く", "Mr.Big最高", "Dr.STONEを読んだ", "test.pyを直した", "朝9.5時間寝た", "してまんねん"];
+			"Mr.Childrenを聴く", "Mr.Big最高", "Dr.STONEを読んだ", "test.pyを直した", "朝9.5時間寝た", "してまんねん",
+			"ガチンコ勝負", "カチンコチンに凍った", "がちんこで勝負", "ユニセックスの服", "サセックス公", "大手マンションの広告", "若手マンガ家", "一日中出しっぱなし", "午前中出した",
+			"新人が入ってこき使われた", "酒は飲まんことにした", "借金を相殺する", "悩殺する", "チョン・ヘインが好き", "ピチョンと水が落ちた", "ドレイプ感のある服", "スクレイプした", "尊すぎて死ねた", "レンジでチン、これが最高",
+			"笑ったwww。", "草www。また明日", "それは草www…", "Lv.MAXになった", "Ver.UPした", "feat.Adoの新曲", "1.AIに聞く", "I know. Me too.", "OK. Live your life.", "Good luck. Be happy.", "YOASOBI。Liveに行く", "いいところすごく好き", "こころすっきり"];
 		ok.forEach((t) => expect(isUnlisted(t), t).toBe(false));
 	});
 	it("バズ神の講評とリプライ（ふつうの文章 5000個あまり）は1つも引っかからない", () => {
@@ -342,8 +409,8 @@ describe("ランキングに出さない投稿（下ネタ・URL）", () => {
 	});
 	it("いいね数もバズ力もいちばん上の投稿でも、一覧に出さないものはランキングに入らない", async () => {
 		await env.DB.exec(CREATE_TABLE);
-		const add = (text, likes, unlisted) => env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets, unlisted, stage) VALUES (?, ?, ?, ?, ?, ?, ?, 16)")
-			.bind(text, "真・家庭内", "🏡", 100, likes, 0, unlisted);
+		const add = (text, likes, unlisted) => env.DB.prepare("INSERT INTO buzzes (text, level, emoji, score, likes, retweets, unlisted, stage) VALUES (?, ?, ?, ?, ?, ?, ?, 13)")
+			.bind(text, "神", "⛩️", 100, likes, 0, unlisted);
 		await env.DB.batch([add("隠す投稿", 9e70, 1), add("見せる投稿", 8e70, 0)]);
 		for (const path of ["/api/ranking", "/api/ranking?by=score"]) {
 			const texts = await list(path);
@@ -382,7 +449,8 @@ describe("荒らし対策", () => {
 		for (const [i, b] of bodies.entries()) {
 			const res = await send("/api/buzz", b, { "cf-connecting-ip": "198.51.100.1" + i });
 			expect([200, 400], b.slice(0, 20)).toContain(res.status);
-			expect((await res.json()).error ?? "ok").toBeTruthy();
+			const json = await res.json();
+			if (res.status === 400) expect(json.error).toBeTruthy(); else expect(json.comment).toBeTruthy();
 		}
 		const seen = await send("/api/buzz", { text: "見た段階がでたらめ", seen: [1e9, -1, "a", null, { x: 1 }, 1.5], posts: 1e99 }, { "cf-connecting-ip": "198.51.100.30" });
 		expect(seen.status).toBe(200);
@@ -399,6 +467,38 @@ describe("荒らし対策", () => {
 		expect(cleanText("😂".repeat(100)).length).toBeLessThanOrEqual(140);
 		expect(() => encodeURIComponent(cleanText("😂".repeat(100)))).not.toThrow();
 		expect(cleanText(null)).toBe("");
+		// 見えない文字だけの投稿は空にする
+		expect(cleanText(String.fromCharCode(0x200D) + String.fromCharCode(0x200D))).toBe("");
+		expect(cleanText(String.fromCharCode(0xFE0F) + String.fromCharCode(0xFE0F))).toBe("");
+		expect(cleanText("\n\n" + String.fromCharCode(0x200D))).toBe("");
+	});
+
+	it("読むだけの API は GET と HEAD だけ", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		for (const path of ["/api/levels", "/api/ranking", "/api/stats"]) {
+			expect((await SELF.fetch("http://example.com" + path, { method: "HEAD" })).status, path).toBe(200);
+			expect((await SELF.fetch("http://example.com" + path, { method: "DELETE" })).status, path).toBe(405);
+		}
+	});
+
+	it("見張りが呼べなくても、投稿は止まらない", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		const req = () => new Request("http://example.com/api/buzz", { method: "POST", headers: { ...JSON_HEADERS, "cf-connecting-ip": "198.51.100.210" }, body: JSON.stringify({ text: "見張りなしの投稿です" }) });
+		const noLimit = { limit() { throw new Error("だめ"); } };
+		expect((await worker.fetch(req(), { ...env, BURST_LIMIT: noLimit, MINUTE_LIMIT: noLimit, GATE: undefined })).status).toBe(200);
+	});
+
+	it("ランキングにエンドコンテンツを入れない（バズ力もいいね数も）", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await env.DB.batch([add("無の投稿です", 0, "e0", 14), add("創世の投稿です", 1e68, "e1", 15), add("ふつうの上位です", 5, "e2", 13)]);
+		await clearLists("http://example.com");
+		const byScore = (await get("/api/ranking?by=score")).map((r) => r.text);
+		expect(byScore).toContain("ふつうの上位です");
+		expect(byScore).not.toContain("無の投稿です");
+		expect(byScore).not.toContain("創世の投稿です");
+		const byLikes = (await get("/api/ranking")).map((r) => r.text);
+		expect(byLikes).not.toContain("創世の投稿です");   // 1無量大数でも入らない
+		expect(byLikes).not.toContain("無の投稿です");
 	});
 
 	it("IPv6 は回線（/64）単位で同じ人とみなす。住所を変えても連投の制限をすり抜けられない", async () => {
@@ -410,6 +510,21 @@ describe("荒らし対策", () => {
 		const codes = [];
 		for (let k = 1; k <= 6; k++) codes.push((await send("/api/buzz", { text: "" }, { "cf-connecting-ip": "2001:db8:aaaa:bbbb::" + k })).status);
 		expect(codes).toEqual([400, 400, 400, 400, 429, 429]);
+	});
+
+	it("D1 が止まったとき、Worker の入れ物が変わっても、Cache の控えから一覧を出せる", async () => {
+		await env.DB.exec(CREATE_TABLE);
+		await add("控えに入る投稿です", 5e99, "stale-1").run();
+		await clearLists("http://example.com");
+		await get("/api/ranking");   // 読めると控えも作られる
+		const kept = await caches.default.match("http://example.com/api/ranking?stale=1");
+		expect((await kept.json()).map((r) => r.text)).toContain("控えに入る投稿です");
+		// 新しい入れ物を、控えの中身だけ変えてまねする
+		await caches.default.put("http://example.com/api/ranking?stale=1", Response.json([{ text: "Cache の控え" }], { headers: { "cache-control": "public, max-age=86400" } }));
+		await caches.default.delete("http://example.com/api/ranking");
+		const brokenEnv = { ...env, DB: { prepare() { throw new Error("止まっている"); } } };
+		const list = await (await worker.fetch(new Request("http://example.com/api/ranking"), brokenEnv)).json();
+		expect(list[0].text).toBe("Cache の控え");
 	});
 
 	it("D1 が止まっても（無料枠を使い切っても）投稿の結果は返り、一覧は最後に読めたものを出す", async () => {
@@ -444,7 +559,7 @@ describe("荒らし対策", () => {
 
 	it("バズ力ランキングは段階の番号で並ぶ（投稿のときに stage も保存する）", async () => {
 		await env.DB.exec(CREATE_TABLE);
-		await env.DB.batch([add("上の段階", 1, "s1", 16), add("下の段階", 9e115, "s2", 15)]);
+		await env.DB.batch([add("上の段階", 1, "s1", 13), add("下の段階", 9e115, "s2", 12)]);
 		const byScore = (await get("/api/ranking?by=score")).map((r) => r.text);
 		expect(byScore.indexOf("上の段階")).toBeLessThan(byScore.indexOf("下の段階"));
 		const res = await send("/api/buzz", { text: "段階を保存するテスト" }, { "cf-connecting-ip": "198.51.100.60" });
@@ -468,11 +583,44 @@ describe("荒らし対策", () => {
 		expect((await SELF.fetch("http://example.com/api/ranking", { method: "POST" })).status).toBe(405);
 	});
 
-	it("「これまで ○ 件」は全件読まずに出す（消した連投の分は引く）", async () => {
+	it("「これまで ○ 件」は一覧に出る投稿の数。隠す・戻す・消すと変わり、全件は読まない", async () => {
 		await env.DB.exec(CREATE_TABLE);
-		await env.DB.prepare("INSERT INTO buzzes (id, text, level, emoji, score, likes, retweets) VALUES (5000, 'x', '村', '🌾', 20, 1, 0)").run();
-		const stats = await get("/api/stats");
-		expect(stats).toEqual({ posts: 5000 - 1959 });
+		// テストどうしで D1 を分け合っているので、始めたときからの増減で見る
+		await clearLists("http://example.com");
+		const base = (await get("/api/stats")).posts;
+		await env.DB.batch([add("数える1", 1, "n1"), add("数える2", 2, "n2"), add("数える3", 3, "n3"), add("数える4", 4, "n3")]);
+		const count = async () => { await clearLists("http://example.com"); return (await get("/api/stats")).posts - base; };
+		const idOf = (text) => env.DB.prepare("SELECT id FROM buzzes WHERE text = ?").bind(text).first("id");
+		const ip = { "cf-connecting-ip": "198.51.100.80" };
+		expect(await count()).toBe(4);
+		// テストモードの「隠す」：clearLists を自分で呼ばなくても、すぐ変わる
+		await get("/api/stats");
+		await send("/api/admin/hide", { key: env.ADMIN_KEY, id: await idOf("数える1") }, ip);
+		expect((await get("/api/stats")).posts - base).toBe(3);
+		await send("/api/admin/hide", { key: env.ADMIN_KEY, id: await idOf("数える3"), all: true }, ip);
+		expect((await get("/api/stats")).posts - base).toBe(1);
+		// 隠れている投稿をもう一度隠しても、二重に引かない
+		await send("/api/admin/hide", { key: env.ADMIN_KEY, id: await idOf("数える1") }, ip);
+		expect(await count()).toBe(1);
+		// 手で流す SQL でも合う
+		await env.DB.prepare("UPDATE buzzes SET unlisted = 2 WHERE text = '数える2'").run();
+		expect(await count()).toBe(0);
+		await env.DB.prepare("UPDATE buzzes SET unlisted = 0 WHERE unlisted = 2").run();
+		expect(await count()).toBe(1);
+		await env.DB.prepare("DELETE FROM buzzes WHERE text = '数える2'").run();
+		expect(await count()).toBe(0);
+		await env.DB.prepare("DELETE FROM buzzes WHERE text = '数える1'").run();   // 隠れている投稿を消しても変わらない
+		expect(await count()).toBe(0);
+		// ふつうの投稿は増え、言葉の判定で隠れる投稿は増えない
+		await send("/api/buzz", { text: "数に入るふつうの投稿です" }, { "cf-connecting-ip": "198.51.100.81" });
+		expect(await count()).toBe(1);
+		await send("/api/buzz", { text: "https://example.com を見て" }, { "cf-connecting-ip": "198.51.100.82" });
+		expect(await count()).toBe(1);
+		// 読むのは1行だけ。移行をもう一度流しても数は変わらない
+		const read = await env.DB.prepare("SELECT listed FROM buzz_count WHERE id = 1").run();
+		expect(read.meta.rows_read).toBe(1);
+		await env.DB.exec(COUNT_SQL);
+		expect(await count()).toBe(1);
 	});
 
 	it("テストモードの「隠す」：合言葉がないと隠せない。1件だけ／同じ人をぜんぶ隠せる", async () => {

@@ -66,8 +66,8 @@ export function analyze(text) {
     hashtags: (text.match(/[#＃]\S+/g) || []).length,
     emojiCount,
     onlyEmoji: emojiCount > 0 && text.replace(/\p{Extended_Pictographic}|\s|️|‍/gu, "") === "",
-    toxic: /死ね|殺す|うざい|クソ|消えろ|ゴミ|カス/.test(text),
-    spam: /(.)\1{5,}/u.test(text),
+    toxic: /死ね(?![るんなま])|殺す|うざい|クソ|消えろ|ゴミ(?!出し|箱|袋|収集|拾|の日)|カス(?![タテトケ])/.test(text),
+    spam: /([^wｗ…ー！!？?])\1{5,}/u.test(text),   // 「草wwwwww」「そう………」「やったーーー」は連打にしない
   };
 }
 
@@ -86,7 +86,7 @@ export function score(text) {
     (f.lines >= 2 ? 2 : 0) + (f.lines >= 3 ? 1 : 0) + (f.dialogue ? 2 : 0) + (f.wordplay ? 3 : 0);
   let fun = 4 + L * 1.2 + Math.min(f.dialogue, 3) * 3 + (f.ochi ? 4 : 0) + (f.laugh ? 3 : 0) + (f.wordplay ? 6 : 0) +
     (f.exclaim ? 2 : 0) + (f.emojiCount >= 1 && f.emojiCount <= 3 ? 2 : 0) + (self ? 2 : 0) + (f.hyper ? 2 : 0);
-  let spread = [0, 5, 10, 12, 14, 12, 9][L + (f.len > 125 ? 2 : f.len > 100 ? 1 : 0)] +
+  let spread = [0, 5, 10, 12, 14, 12, 9][f.len > 125 ? 6 : f.len > 100 ? 5 : L] +
     (f.participation ? 5 : 0) + (f.hashtags >= 1 && f.hashtags <= 2 ? 2 : 0) + (f.hashtags >= 4 ? -5 : 0) +
     (f.ochi ? 2 : 0) + (f.aru ? 2 : 0) + (t >= 1 ? 2 : 0);
 
@@ -141,11 +141,19 @@ function randomBetween(min, max) {
 const WAVE = { chance: 0.26, perPost: 0.011, maxChance: 0.75, jump: 8, jumpEvery: 2, after: 0.3 };
 // 波やふつうの採点で届くのは、エンドコンテンツより前の14段階（0〜13）だけ
 const MAIN = LEVELS.filter((l) => !l.end).length;
+// ∬…（14段階の最後）は、ほかのシークレットをぜんぶ解放したあとにしか出ない
+const LAST = MAIN - 1;
+const canReachLast = (seen) => seen.has(LAST) || LEVELS.every((l, i) => !l.secret || l.end || i === LAST || seen.has(i));
+// 点数で決まる段階。点数が足りていても、ほかのシークレットを解放するまでは神で止まる
+export function levelFromScore(total, luck) {
+  const index = LEVELS.findLastIndex((l) => !l.end && total >= l.minScore);
+  return index === LAST && luck && !canReachLast(new Set(luck.seen)) ? LAST - 1 : index;
+}
 export function waveTarget(index, luck) {
   if (!luck) return null;
   const seen = new Set(luck.seen);
   if (!seen.has(index)) return null;   // 今の段階がまだ見たことのない段階なら、波がなくても新しい
-  const reach = Math.min(MAIN - 1, index + WAVE.jump + Math.floor(luck.posts / WAVE.jumpEvery));
+  const reach = Math.min(canReachLast(seen) ? LAST : LAST - 1, index + WAVE.jump + Math.floor(luck.posts / WAVE.jumpEvery));
   const above = [];
   for (let i = index + 1; i <= reach; i++) above.push(i);
   const unseen = above.filter((i) => !seen.has(i));
@@ -161,6 +169,7 @@ export function waveTarget(index, luck) {
 // ── エンドコンテンツ（無 → 創世 → 真・家庭内）──
 // バズマップにも載らない、最後の3段階。14段階ぜんぶ見たあとだけ、波とは別に、まれに出る
 // 順番に1つずつ（chance の確率で）解放し、3つとも見たあとも again の確率でまた出る
+// 真・家庭内は、結果として実際に家庭内に着いたことがある人（luck.home）だけ（上昇の途中で通っただけでは数えない）
 const END = { chance: 0.12, again: 0.03 };
 export function endTarget(luck) {
   if (!luck) return null;
@@ -168,6 +177,7 @@ export function endTarget(luck) {
   for (let i = 0; i < MAIN; i++) if (!seen.has(i)) return null;   // 14段階ぜんぶ見るまでは出ない
   const ends = LEVELS.map((l, i) => i).filter((i) => LEVELS[i].end);
   const next = ends.find((i) => !seen.has(i));
+  if (next === ends[ends.length - 1] && !luck.home) return null;
   if (next != null) return Math.random() < END.chance ? next : null;
   return Math.random() < END.again ? ends[Math.floor(Math.random() * ends.length)] : null;
 }
@@ -201,7 +211,7 @@ function fitAxes(axes, total) {
   return out;
 }
 
-// luck：{ seen: このブラウザで見たことのある段階の番号, posts: これまでの投稿回数 }（「バズの波」用。なくてもよい）
+// luck：{ seen: このブラウザで見たことのある段階の番号, posts: これまでの投稿回数, home: 家庭内に着いたことがあるか }（「バズの波」用。なくてもよい）
 export function simulateBuzz(text, forceIndex, luck) {
   let { axes, total, features } = score(text);
   let wave = false, index;
@@ -209,11 +219,14 @@ export function simulateBuzz(text, forceIndex, luck) {
     // テストモード：指定した段階になるように点数を合わせる
     const lv = LEVELS[forceIndex], next = LEVELS[forceIndex + 1];
     total = lv.end || !next || next.end ? 100 : Math.floor((lv.minScore + next.minScore - 1) / 2);
-    const q = Math.floor(total / 4);
-    axes = { empathy: q, surprise: q, fun: q, spread: total - q * 3 };
+    axes = fitAxes({ empathy: 1, surprise: 1, fun: 1, spread: 1 }, total);
     index = forceIndex;
   } else {
-    index = LEVELS.findLastIndex((l) => !l.end && total >= l.minScore);
+    index = levelFromScore(total, luck);
+    if (total >= LEVELS[LAST].minScore && index !== LAST) {   // 神で止まったので、点数も神に合わせる
+      total = scoreFor(index);
+      axes = fitAxes(axes, total);
+    }
     const end = endTarget(luck);
     const target = end != null ? end : waveTarget(index, luck);
     if (target != null) {
@@ -302,7 +315,7 @@ const gateOf = (env, key) => env.GATE.get(env.GATE.idFromName(key));
 async function tooFast(env, kind, person) {
   const rule = RULES[kind], key = kind + ":" + person;
   for (const [name, wait] of rule.limiters) {
-    if (env[name] && !(await env[name].limit({ key })).success) return wait;
+    try { if (env[name] && !(await env[name].limit({ key })).success) return wait; } catch { /* 呼べないときは次の見張りに任せる */ }
   }
   if (!env.GATE) return 0;
   // 係が呼べないとき（無料枠の上限など）は、ふつうの人を止めないように通す
@@ -354,13 +367,14 @@ async function readJson(request) {
 }
 // 投稿の文章をきれいにする。見えない文字・文字の向きを変える制御文字・縦に伸びる飾り（Zalgo）で一覧を崩されないように
 export function cleanText(raw) {
-  return (typeof raw === "string" ? raw : "")
+  const t = (typeof raw === "string" ? raw : "")
     .replace(/\r\n?|[\u2028\u2029]/g, "\n").replace(/\t/g, " ")
     .replace(/\p{Cs}/gu, "")   // 壊れた文字（絵文字の片割れ）。シェアのときに URL にできず止まる
     .replace(/[\p{Cc}\p{Cf}\p{Cn}\p{Co}\u115F\u1160\u2800\u3164\uFFA0]/gu, (c) => (c === "\n" || c === "\u200D" ? c : ""))   // 改行と絵文字をつなぐ文字だけ残す
     .replace(/(\p{M}{3})\p{M}+/gu, "$1")
     .replace(/\n{3,}/g, "\n\n")
     .trim().slice(0, 140).replace(/[\uD800-\uDBFF]$/, "");
+  return /[^\s\p{M}\p{Cf}]/u.test(t) ? t : "";   // 絵文字をつなぐ文字や飾りだけの投稿は、空として扱う
 }
 // 一覧を1人1件にするための印。IP そのものは保存しない（合言葉を鍵にしたハッシュの先頭だけ）
 async function whoOf(env, person) {
@@ -391,18 +405,19 @@ function onePerPerson(rows, limit) {
   }
   return out;
 }
-const TOP_SQL = "SELECT id, text, level, emoji, score, likes, who FROM buzzes WHERE unlisted = 0 ORDER BY ";
+const TOP_SQL = "SELECT id, text, level, emoji, score, likes, who FROM buzzes WHERE unlisted = 0 ";
 const LATEST_SQL = "SELECT id, text, level, emoji, score, likes, created_at, who FROM buzzes WHERE unlisted = 0 ORDER BY id DESC LIMIT 100";
-const DELETED_POSTS = 1959;   // 2026-10-30 に消した連投の「a」の数（「これまで ○ 件」から引く）
 const LISTS = {
-  "/api/ranking":          { seconds: 30, load: async (db) => onePerPerson((await db.prepare(TOP_SQL + "likes DESC LIMIT 100").all()).results, 10) },
-  "/api/ranking?by=score": { seconds: 30, load: async (db) => onePerPerson((await db.prepare(TOP_SQL + "stage DESC, score DESC, likes DESC LIMIT 100").all()).results, 10) },
+  // エンドコンテンツは順位を付けない（無＝0点、創世＝1点。1無量大数の創世が、いいね数の上位を埋めてしまうのも防ぐ）
+  "/api/ranking":          { seconds: 30, load: async (db) => onePerPerson((await db.prepare(TOP_SQL + "AND stage < " + MAIN + " ORDER BY likes DESC LIMIT 100").all()).results, 10) },
+  "/api/ranking?by=score": { seconds: 30, load: async (db) => onePerPerson((await db.prepare(TOP_SQL + "AND stage < " + MAIN + " ORDER BY stage DESC, score DESC, likes DESC LIMIT 100").all()).results, 10) },
   "/api/history":          { seconds: 30, load: async (db) => onePerPerson((await db.prepare(LATEST_SQL).all()).results, 20) },
-  // 数えると全部の行を読むことになるので、番号のいちばん大きいものを見るだけにする（文章は出さないので、一覧に出さない投稿も数に入る）
-  "/api/stats":            { seconds: 60, load: async (db) => ({ posts: Math.max(0, ((await db.prepare("SELECT MAX(id) AS n FROM buzzes").first())?.n ?? 0) - DELETED_POSTS) }) },
+  // 「これまで ○ 件」は一覧に出る投稿の数。数えると全部の行を読むことになるので、トリガーが増減する1行を読むだけにする（tools/migrate-count.sql）
+  "/api/stats":            { seconds: 60, load: async (db) => ({ posts: Math.max(0, (await db.prepare("SELECT listed FROM buzz_count WHERE id = 1").first("listed")) ?? 0) }) },
 };
 const lastGood = {};
-export const clearLists = (origin) => Promise.all(Object.keys(LISTS).map((path) => caches.default.delete(origin + path)));
+const staleKey = (key) => key + (key.includes("?") ? "&" : "?") + "stale=1";   // D1 が止まったとき用の控え
+export const clearLists = (origin) => Promise.all(Object.keys(LISTS).flatMap((path) => [caches.default.delete(origin + path), caches.default.delete(staleKey(origin + path))]));
 async function serveList(path, env, origin) {
   const key = origin + path;   // ?x=1 のような余計なものを付けられても、同じものを返す（ためている分を素通りさせない）
   const hit = await caches.default.match(key);
@@ -410,9 +425,11 @@ async function serveList(path, env, origin) {
   let seconds = LISTS[path].seconds;
   try {
     lastGood[path] = await LISTS[path].load(env.DB);
+    await caches.default.put(staleKey(key), Response.json(lastGood[path], { headers: { "cache-control": "public, max-age=86400" } }));
   } catch (e) {
     console.error("一覧を読めなかった", path, e);
-    lastGood[path] ??= path === "/api/stats" ? {} : [];
+    const kept = await caches.default.match(staleKey(key));
+    lastGood[path] = kept ? await kept.json() : lastGood[path] ?? (path === "/api/stats" ? {} : []);
     seconds = 5;
   }
   const res = Response.json(lastGood[path], { headers: { "cache-control": "public, max-age=" + seconds } });
@@ -457,11 +474,11 @@ async function route(request, env) {
     const seen = Array.isArray(body.seen)
       ? [...new Set(body.seen.slice(0, 40).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < LEVELS.length))] : [];
     const posts = Math.max(0, Math.min(10000, Math.floor(Number(body.posts) || 0)));
-    const result = simulateBuzz(text, null, { seen, posts });
+    const result = simulateBuzz(text, null, { seen, posts, home: body.home === true });
     // 下ネタ・URL の投稿も採点して結果は返すが、ランキングと履歴には出さない（unlisted = 1）
     const unlisted = isUnlisted(text);
     // 1日の上限を超えた分は保存しない。係が呼べないときは保存する
-    const keep = await gateOf(env, "buzz:" + person).canSave().catch(() => true);
+    const keep = env.GATE ? await gateOf(env, "buzz:" + person).canSave().catch(() => true) : true;
     // D1に保存（env.DB は wrangler.jsonc の binding 名）。保存できなくても（無料枠を使い切った等）、結果は返して遊べるようにする
     if (keep) {
       try {
@@ -501,23 +518,25 @@ async function route(request, env) {
     if (url.pathname === "/api/admin/hide") {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: "番号がおかしいです" }, { status: 400 });
+      // meta.changes はトリガーが直した件数の行まで数えるので、隠した行そのものを返してもらって数える
       const sql = body.all
-        ? "UPDATE buzzes SET unlisted = 1 WHERE id = ?1 OR who = (SELECT who FROM buzzes WHERE id = ?1)"
-        : "UPDATE buzzes SET unlisted = 1 WHERE id = ?1";
-      const { meta } = await env.DB.prepare(sql).bind(id).run();
+        ? "UPDATE buzzes SET unlisted = 1 WHERE (id = ?1 OR who = (SELECT who FROM buzzes WHERE id = ?1)) AND unlisted = 0 RETURNING id"
+        : "UPDATE buzzes SET unlisted = 1 WHERE id = ?1 AND unlisted = 0 RETURNING id";
+      const { results } = await env.DB.prepare(sql).bind(id).all();
       await clearLists(url.origin);
-      return Response.json({ ok: true, hidden: meta.changes });
+      return Response.json({ ok: true, hidden: results.length });
     }
   }
 
   if (url.pathname === "/api/history" || url.pathname === "/api/ranking" || url.pathname === "/api/stats") {
-    if (request.method !== "GET") return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET" } });
+    if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     // ?by=score でバズ力ランキング（段階が上のものから、同じ段階なら点数順）、それ以外はいいね数ランキング
     const byScore = url.pathname === "/api/ranking" && url.searchParams.get("by") === "score";
     return serveList(url.pathname + (byScore ? "?by=score" : ""), env, url.origin);
   }
 
   if (url.pathname === "/api/levels") {
+    if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     // 画面のバズマップ用（シークレットは名前を伏せる。シークレットの中のシークレットは存在ごと隠す）
     return Response.json(LEVELS.filter((l) => !l.hidden)
       .map((l) => ({ name: l.secret ? null : l.name, emoji: l.secret ? null : l.emoji, secret: !!l.secret })));

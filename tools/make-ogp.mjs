@@ -71,7 +71,7 @@ ${stars}
 <div class="left">
   <span class="pill">バズ神があなたのツイートを採点</span>
   <h1>ツイート<br>バズシミュレーター</h1>
-  <p class="sub">家庭内から地球まで、<em>全14段階</em>。<br>霧の向こうには、まだ何かある……</p>
+  <p class="sub">家庭内から地球、その先まで<em>全14段階</em>。<br>霧の向こうには、まだ何かある……</p>
 </div>
 <div class="row">
   <span>🏠</span><span>🌾</span><span>🏘️</span><span>🏯</span><span>🗾</span><span>🌏</span><span>🌍</span>

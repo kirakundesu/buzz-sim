@@ -168,3 +168,6 @@ dist
 
 # 画面幅の確認で撮った画像（scripts/responsive-check.mjs）
 responsive-shots/
+
+# 紹介動画（MP4 と作るためのスクリプト。容量が大きいので git に入れない）
+promo/

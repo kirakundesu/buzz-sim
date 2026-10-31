@@ -6,24 +6,29 @@ export const HTML = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ツイートバズシミュレーター</title>
-<meta name="description" content="バズ神があなたのツイートを採点。家庭内から地球まで、全14段階。霧の向こうには、まだ何かある……">
+<meta name="description" content="バズ神があなたのツイートを採点。家庭内から地球、その先まで全14段階。霧の向こうには、まだ何かある……">
+<meta name="theme-color" content="#07080d">
+<link rel="canonical" href="https://buzz-sim.kira-buzz.workers.dev/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="🚀 ツイートバズシミュレーター">
-<meta property="og:description" content="バズ神があなたのツイートを採点。家庭内から地球まで、全14段階。霧の向こうには、まだ何かある……">
+<meta property="og:description" content="バズ神があなたのツイートを採点。家庭内から地球、その先まで全14段階。霧の向こうには、まだ何かある……">
+<meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://buzz-sim.kira-buzz.workers.dev/">
 <meta property="og:site_name" content="ツイートバズシミュレーター">
-<meta property="og:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=2">
+<meta property="og:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="バズ神がツイートを採点するツイートバズシミュレーター">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=2">
-<link rel="icon" href="data:,">
+<meta name="twitter:image" content="https://buzz-sim.kira-buzz.workers.dev/ogp.png?v=3">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚀%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #07080d; --panel: #12141c; --panel2: #181b25; --line: #262a36; --text: #eef1f6; --sub: #8a93a6;
     --blue: #1d9bf0; --pink: #f91880; --gold: #facc15;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -66,18 +71,24 @@ export const HTML = String.raw`<!doctype html>
   .map li { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; font-size: 14px; color: var(--sub);
     transition: background .3s, color .3s, transform .3s; }
   .map li .me { width: 24px; text-align: center; font-size: 18px; }
-  .map li.secret { color: #6b5f8a; }
+  .map li.secret { color: #8d81b0; }
   .map li.secret.locked .e { filter: grayscale(1) brightness(.6); }
   .map li.reached { color: var(--text); background: rgba(255,255,255,.04); }
   .map li.best { background: linear-gradient(90deg, rgba(29,155,240,.25), transparent); color: #fff; }
   .map li.now { background: linear-gradient(90deg, rgba(249,24,128,.45), transparent); color: #fff; transform: translateX(6px); }
-  .map .divider { color: #a78bfa; font-size: 11px; letter-spacing: .2em; padding: 6px 10px 2px; }
+  .map .divider { color: #a78bfa; font-size: 12px; letter-spacing: .1em; padding: 6px 10px 2px; }
   .map .divider::before { content: "▲ ここから上はシークレット ▲"; }
   /* 霧：まだ届いていない「シークレットの中のシークレット」。名前も絵文字も見せず、あることだけ匂わせる */
-  .map .fogline { color: #64748b; font-size: 11px; letter-spacing: .2em; padding: 6px 10px 2px; }
+  .map .fogline { color: #94a3b8; font-size: 12px; letter-spacing: .1em; padding: 6px 10px 2px; }
   .map .fogline::before { content: "▲ この先は霧で見えない ▲"; }
   .map li.fog { color: #565071; filter: blur(.7px); background: linear-gradient(90deg, rgba(148,163,184,.1), transparent 80%); }
   .map li.fog .me { filter: grayscale(1); opacity: .7; }
+  /* 届いたことのある段階：押すと演出をもう一度見られる */
+  .map li.play { padding: 0; }
+  .map li.play button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background .15s; }
+  @media (pointer: coarse) { .map li.play button { min-height: 44px; } }   /* 指で押すときは44px。マウスのときは14段が画面に収まる高さのまま */
+  .map li.play button:hover, .map li.play button:focus-visible { background: rgba(255,255,255,.1); }
+  .map li.play .go { margin-left: auto; flex: none; color: var(--sub); font-size: 12px; }
 
   /* 右：ランキングTOP3と記録 */
   .top3 { list-style: none; margin: 0 0 12px; padding: 0; }
@@ -86,19 +97,19 @@ export const HTML = String.raw`<!doctype html>
   .top3 .s { color: var(--sub); white-space: nowrap; }
   .top3 .empty { color: var(--sub); }
   .minitabs { display: flex; gap: 4px; }
-  /* スマホでは指で押しやすい高さ（36px）、640px からは小さく */
-  .minitabs button { border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 999px; min-height: 36px; padding: 0 14px; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
-  @media (min-width: 640px) { .minitabs button { min-height: 0; padding: 2px 9px; font-size: 11px; } }
+  /* 指で押すときは44px。マウスで押す 640px〜は小さく */
+  .minitabs button { border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 999px; min-height: 44px; padding: 0 14px; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  @media (min-width: 640px) and (pointer: fine) { .minitabs button { min-height: 0; padding: 2px 9px; font-size: 12px; } }
   .minitabs button.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
   /* 自己ベストの投稿（「あなたの記録」パネルの中）*/
   .bestpost { margin-top: 10px; background: var(--panel2); border: 1px solid #a16207; border-radius: 12px; padding: 10px 12px; display: none; }
   .bestpost.show { display: block; }
-  .bestpost small { color: #fde68a; font-size: 11px; font-weight: 800; }
+  .bestpost small { color: #fde68a; font-size: 12px; font-weight: 800; }
   .bestpost .bp-text { margin: 4px 0 6px; font-size: 14px; white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .bestpost .bp-meta { color: var(--sub); font-size: 12px; margin-bottom: 8px; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
-  .stat small { display: block; color: var(--sub); font-size: 11px; }
+  .stat small { display: block; color: var(--sub); font-size: 12px; }
   .stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
   .wide { width: 100%; }
   .mini-god { display: flex; gap: 10px; align-items: flex-end; }
@@ -117,8 +128,10 @@ export const HTML = String.raw`<!doctype html>
   .hero p { color: var(--sub); margin: 8px 0 0; }
   @keyframes shine { to { background-position: 300% 0; } }
   /* スマホ用のバズマップ（14個が1行に収まる大きさ） */
-  .mapstrip { display: flex; justify-content: center; gap: 2px; margin-top: 12px; font-size: 17px; flex-wrap: wrap; }
+  /* スマホの絵文字の列：押すとバズマップが開く */
+  .mapstrip { display: flex; justify-content: center; align-items: center; gap: 1px; width: 100%; min-height: 44px; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--sub); font: inherit; font-size: min(17px, 4.1vw); flex-wrap: wrap; cursor: pointer; }   /* 14個と › が1行に入る大きさ */
   .mapstrip span { opacity: .9; }
+  .mapstrip::after { content: "›"; margin-left: 6px; font-size: 20px; line-height: 1; }
 
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
   .composer { display: flex; gap: 12px; }
@@ -131,13 +144,14 @@ export const HTML = String.raw`<!doctype html>
     animation: dots 1s steps(3) infinite; }
   @keyframes typing { from { transform: rotate(-8deg) translateY(0); } to { transform: rotate(8deg) translateY(-3px); } }
   @keyframes dots { to { background-position: 21px 0; } }
+  .card:has(textarea:focus-visible) { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(29,155,240,.4); }   /* 入力欄にカーソルがあると分かるように */
   .composer textarea { flex: 1; min-height: 96px; resize: vertical; border: 0; outline: 0; background: transparent;
     color: var(--text); font: inherit; font-size: 18px; line-height: 1.5; }
   .composer-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; }
   .count { color: var(--sub); font-size: 13px; }
   .count.warn { color: var(--pink); }
   /* ボタンは指で押しやすい高さ（44px 以上）*/
-  .btn { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 22px; font-weight: 800; font-size: 15px; cursor: pointer; color: #fff; background: var(--blue);
+  .btn { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 22px; font-weight: 800; font-size: 15px; cursor: pointer; color: #fff; background: #0a74c2;
     transition: transform .15s, filter .15s; }
   .btn:hover { filter: brightness(1.1); } .btn:active { transform: scale(.96); }
   .btn:disabled { opacity: .45; cursor: default; }
@@ -174,18 +188,34 @@ export const HTML = String.raw`<!doctype html>
   .overlay { position: fixed; inset: 0; z-index: 50; display: none; overflow: hidden; }
   .overlay.show { display: block; }
   #cinema { background: #000; }
-  .scene { position: absolute; inset: 0; overflow: hidden; }
+  /* --caph：段階の名前・いいね数・一言が下から占める高さ（.caption の文字の大きさと同じ式）。横長の画面で、絵が文字に重ならないように使う */
+  .scene { position: absolute; inset: 0; overflow: hidden; --caph: calc(8vh + 3.4 * min(7vw, 10vh, 72px)); }
   .caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; z-index: 5; padding: 0 16px; }
-  .caption .lv { font-size: clamp(24px, min(7vw, 10vh), 72px); font-weight: 800; text-shadow: 0 4px 24px rgba(0,0,0,.7); animation: popin .6s .2s cubic-bezier(.2,1.6,.4,1) both; }
-  .caption .sub { font-size: clamp(13px, min(2.4vw, 4.5vh), 22px); margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.8); animation: fadein .6s .7s both; }
+  .caption .lv { font-size: clamp(24px, min(7vw, 10vh), 72px); font-weight: 800; text-shadow: 0 4px 24px rgba(0,0,0,.7); }
+  .caption .sub { font-size: clamp(15px, min(2.4vw, 4.5vh), 22px); margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+  /* 段階の名前 → いいね数 → 一言 を、playScene の SHOW の時刻に1つずつ出す（出るまでは場所だけ取っておく）*/
+  .caption > div { visibility: hidden; }
+  .caption > div.on { visibility: visible; }
+  .caption .lv.on { animation: popin .45s cubic-bezier(.2,1.6,.4,1) both; }
+  .caption .sub.on { animation: fadein .5s both; }
+  /* いいね数：これが出ている間は、ここだけを見てほしいので大きく。桁が多ければ画面に収まるように小さく（--len）*/
+  .caption .likes { margin-top: 2px; font-weight: 800; color: #ff6fb1; line-height: 1.15; -webkit-text-stroke: .05em #3f0a24; paint-order: stroke fill; text-shadow: 0 2px 12px rgba(0,0,0,.75); white-space: nowrap; font-variant-numeric: tabular-nums;
+    font-size: min(clamp(26px, min(9vw, 10vh), 68px), calc(150vw / var(--len, 8))); }
+  .caption .likes b { display: inline-block; }
+  .caption .likes.done b { animation: likesdone .35s cubic-bezier(.2,1.8,.4,1); }
+  @keyframes likesdone { from { transform: scale(1.45); } }
+  .s-void .caption .likes { color: #52525b; -webkit-text-stroke: 0; text-shadow: none; }
+  /* 着地：止まったまま、じわじわ迫る（--hold はその段にいる時間）*/
+  .climb.stop .big { animation: zoomout .32s ease-out, climbhold var(--hold) ease-in forwards; }
+  @keyframes climbhold { to { scale: 1.16; } }
   @keyframes popin { from { transform: scale(.3); opacity: 0; } }
   @keyframes fadein { from { opacity: 0; transform: translateY(10px); } }
-  .skip { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; min-height: 40px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3); border-radius: 999px;
+  .skip { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 20; min-height: 44px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3); border-radius: 999px;
     padding: 6px 14px; cursor: pointer; font-size: 13px; }
-  /* いいね数：スマホはリツイートといいねを2段に積んで、右上のスキップと重ならない幅にする。640px〜は横に並べる */
-  .hud { position: absolute; left: 12px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; display: flex; flex-direction: column; gap: 2px; font-weight: 800; font-size: 14px;
+  /* いいね数：上昇の間に見せる数字は1つだけ */
+  .hud { position: absolute; left: 12px; top: calc(16px + env(safe-area-inset-top)); z-index: 9; font-weight: 800; font-size: 17px;
     background: rgba(0,0,0,.45); border-radius: 14px; padding: 6px 12px; font-variant-numeric: tabular-nums; }
-  @media (min-width: 640px) { .hud { left: 16px; flex-direction: row; gap: 14px; font-size: clamp(14px, 2.4vw, 20px); padding: 8px 14px; } }
+  @media (min-width: 640px) { .hud { left: 16px; font-size: clamp(17px, 2.4vw, 22px); padding: 8px 14px; } }
   .hud .l { color: var(--pink); }
 
   /* 審査中 */
@@ -201,11 +231,22 @@ export const HTML = String.raw`<!doctype html>
   .climb .big { font-size: min(34vw, 260px); line-height: 1; animation: zoomout .32s ease-out; }
   .climb .nm { position: absolute; bottom: 14vh; font-size: clamp(22px, 5vw, 44px); font-weight: 800; }
   @keyframes zoomout { from { transform: scale(2.4); opacity: 0; } }
-  .warning { position: absolute; inset: 0; display: grid; place-items: center; background: repeating-linear-gradient(45deg, #000 0 30px, #3b0764 30px 60px);
-    font-weight: 800; font-size: clamp(28px, 7vw, 64px); color: #f0abfc; text-shadow: 0 0 20px #c026d3; text-align: center;
-    animation: stripes 1.2s linear infinite, warnglow .45s ease-in-out infinite alternate; }   /* 点滅の代わりに、しま模様が流れて文字の光がふくらむ */
-  @keyframes stripes { to { background-position: 85px 0; } }
-  @keyframes warnglow { to { text-shadow: 0 0 44px #e879f9, 0 0 10px #f5d0fe; letter-spacing: .04em; } }
+  /* SECRET ZONE 突入：地球で止まったと思わせたあと、文字を3回叩きつける（ZONE_MS と Sound の zone に合わせる）。見せるのは文字と回る光だけ */
+  .warning { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; --k: 1.5; --c3: #f0abfc; text-align: center; font-weight: 800;
+    background: radial-gradient(circle, #4c0d7a, #12001f 70%); animation: zonein .3s ease-out both; }
+  @keyframes zonein { from { opacity: 0; scale: 1.12; } }
+  .z-beam { position: absolute; left: 50%; top: 50%; width: 150vmax; height: 150vmax; margin: -75vmax 0 0 -75vmax;
+    background: conic-gradient(rgba(217,70,239,.5) 0 24deg, transparent 24deg 180deg, rgba(250,204,21,.32) 180deg 204deg, transparent 204deg); animation: cispin 2.4s linear infinite; }
+  .z-cam { position: relative; z-index: 3; animation: zpush 1.5s cubic-bezier(.3,0,.7,1) both, zjolt 1.5s linear both; }
+  @keyframes zpush { from { scale: 1; } to { scale: 1.16; } }
+  @keyframes zjolt { 0%, 7%, 14%, 27%, 34%, 47%, 56%, 100% { translate: 0 0; } 8% { translate: -10px 6px; } 28% { translate: 12px -7px; } 48% { translate: -18px 10px; } }
+  .z-word { font-size: clamp(48px, min(20vw, 20vh), 170px); line-height: 1; color: #fff; -webkit-text-stroke: .025em #2e0a4f; paint-order: stroke fill;
+    text-shadow: 0 0 .25em #d946ef, .05em .05em 0 #7e22ce; animation: zslam .26s .12s cubic-bezier(.2,1.5,.4,1) both; }
+  .z-word.b { animation-delay: .42s; }
+  @keyframes zslam { from { transform: scale(3.4) rotate(-10deg); opacity: 0; } }
+  .z-stamp { display: inline-block; margin-top: .25em; padding: .04em .4em; rotate: -6deg; font-size: clamp(38px, min(15vw, 15vh), 120px); line-height: 1.1; color: #1a0b00; border-radius: .16em;
+    background: linear-gradient(90deg, #fde047, #f59e0b); border: .06em solid #fff; box-shadow: 0 0 .6em #facc15; animation: zstamp .28s .72s cubic-bezier(.2,1.7,.4,1) both; }
+  @keyframes zstamp { from { transform: scale(4.5); opacity: 0; } }
   @keyframes blink { 50% { opacity: .2; } }
   /* エンドコンテンツの道のり（地図の外の特別枠。シークレットゾーンもカットインも通らず、字幕で静かに語る）
      明るさはどれも1秒くらいかけて変える（光過敏への配慮） */
@@ -268,24 +309,25 @@ export const HTML = String.raw`<!doctype html>
   .grass { bottom: 6%; font-size: min(8vw, 60px); animation: sway 1s ease-in-out infinite alternate; }
 
   /* 町：町内放送 */
-  .s-town { background: linear-gradient(#7dd3fc, #e0f2fe 60%, #a3a3a3 60%); }
-  .s-town .row { position: absolute; left: 0; right: 0; bottom: 46%; display: flex; justify-content: space-around; font-size: min(14vw, 120px); }
-  .s-town .speaker { left: 12%; top: 10%; font-size: min(14vw, 110px); animation: shake .3s infinite; }
+  .s-town { background: linear-gradient(#7dd3fc, #e0f2fe 60%, #525252 60%); }
+  .s-town .row { position: absolute; left: 0; right: 0; bottom: max(46%, calc(var(--caph) + 11vh)); display: flex; justify-content: space-around; font-size: min(14vw, 18vh, 120px); }
+  .s-town .speaker { left: 12%; top: 10%; font-size: min(14vw, 20vh, 110px); animation: shake .3s infinite; }
   .s-town .wave { position: absolute; left: 22%; top: 16%; width: 80px; height: 80px; border-radius: 50%; border: 4px solid #0369a1; border-left-color: transparent; border-bottom-color: transparent;
     animation: wave 1.2s ease-out infinite; }
   @keyframes wave { from { transform: scale(.4) rotate(45deg); opacity: 1; } to { transform: scale(3) rotate(45deg); opacity: 0; } }
   .s-town .announce { left: 30%; top: 12%; color: #0c4a6e; animation-delay: .3s; }
-  .s-town .crowd { position: absolute; left: 0; right: 0; bottom: 27%; display: flex; justify-content: center; gap: 4vw; font-size: min(11vw, 90px); }
+  .s-town .crowd { position: absolute; left: 0; right: 0; bottom: max(27%, var(--caph)); display: flex; justify-content: center; gap: 4vw; font-size: min(11vw, 12vh, 90px); }
   .s-town .crowd span { animation: hop .5s ease-in-out infinite alternate; }
   @keyframes hop { to { transform: translateY(-14px); } }
   @keyframes shake { 25% { transform: translateX(-3px) rotate(-3deg); } 75% { transform: translateX(3px) rotate(3deg); } }
 
   /* 県：ローカルニュース */
-  .s-pref { background: radial-gradient(circle at 50% 40%, #1e3a5f, #020617); display: grid; place-items: center; }
-  .tv { position: relative; width: min(80vw, 760px); aspect-ratio: 16 / 9; border: 18px solid #1f2937; border-radius: 22px; background: linear-gradient(#bae6fd, #e0f2fe);
-    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.6); animation: popin .5s ease both; }
-  .tv .castle { right: 6%; bottom: 18%; font-size: min(18vw, 160px); }
-  .tv .anchor { left: 8%; bottom: 14%; font-size: min(16vw, 140px); }
+  .s-pref { background: radial-gradient(circle at 50% 40%, #1e3a5f, #020617); display: grid; place-items: center; padding: 16px 0 var(--caph); }
+  .tv { position: relative; container-type: inline-size; width: min(80vw, 760px, calc((100vh - var(--caph) - 24px) * 16 / 9)); aspect-ratio: 16 / 9; border: 18px solid #1f2937; border-radius: 22px; background: linear-gradient(#bae6fd, #e0f2fe);
+    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.6); animation: crton .55s cubic-bezier(.3,.9,.3,1) both; }
+  @keyframes crton { 0% { transform: scale(.05, .006); filter: brightness(2); } 45% { transform: scale(1, .006); filter: brightness(2); } 100% { transform: none; filter: none; } }   /* 古いテレビがつくように、線が広がる */
+  .tv .castle { right: 6%; bottom: 18%; font-size: 24cqw; }
+  .tv .anchor { left: 8%; bottom: 14%; font-size: 21cqw; }
   .tv .tag { position: absolute; left: 0; top: 8%; background: #dc2626; color: #fff; font-weight: 800; padding: 6px 14px; font-size: clamp(14px, 2.4vw, 24px); }
   .tv .ticker { position: absolute; left: 0; right: 0; bottom: 0; background: #1d4ed8; color: #fff; font-weight: 800; white-space: nowrap; padding: 8px 0; font-size: clamp(13px, 2vw, 20px); }
   .tv .ticker span { display: inline-block; padding-left: 100%; animation: ticker 6s linear infinite; }
@@ -293,29 +335,33 @@ export const HTML = String.raw`<!doctype html>
 
   /* 全国：速報 */
   .s-nation { background: radial-gradient(circle, #7f1d1d, #1c0505); }
-  .s-nation .japan { left: 50%; top: 45%; font-size: min(40vw, 340px); transform: translate(-50%, -50%); }
+  .s-nation .japan { left: 50%; top: 43%; font-size: min(40vw, 40vh, 340px); transform: translate(-50%, -50%); }
   .s-nation .ripple { position: absolute; left: 55%; top: 42%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; border: 4px solid #fca5a5; animation: ripple 1.4s ease-out infinite; }
   @keyframes ripple { to { width: 80vmin; height: 80vmin; margin: -40vmin; opacity: 0; } }
-  /* カメラのフラッシュ：1回だけ、やわらかく（光過敏の人のため、何度もちかちかさせない）*/
-  .s-nation .flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash 1s .4s ease-out 1; }
   @keyframes flash { 0% { opacity: .45; } 100% { opacity: 0; } }
-  .s-nation .sokuho { position: absolute; left: 0; right: 0; top: 10%; background: #dc2626; color: #fff; font-weight: 800; text-align: center; font-size: clamp(26px, 6vw, 60px); padding: 10px;
-    animation: slam .5s cubic-bezier(.2,1.6,.4,1) both; letter-spacing: .3em; }
+  .s-nation .sokuho { position: absolute; left: 0; right: 0; top: 10%; background: #dc2626; color: #fff; font-weight: 800; text-align: center; font-size: clamp(38px, 12vw, 100px); line-height: 1.2; padding: 10px;
+    animation: slam .32s cubic-bezier(.2,1.6,.4,1) both; letter-spacing: .3em; }
   @keyframes slam { from { transform: scaleX(0); } }
   .s-nation .heli { top: 26%; font-size: min(12vw, 90px); animation: heli 3.5s linear forwards; }
   @keyframes heli { from { left: -15%; } to { left: 110%; } }
 
   /* アジア */
-  .s-asia { background: linear-gradient(135deg, #0f766e, #155e75, #1e3a8a); }
-  .s-asia .globe { left: 50%; top: 45%; transform: translate(-50%, -50%); font-size: min(38vw, 300px); }
-  .flag { font-size: min(10vw, 80px); animation: flyin 1s cubic-bezier(.2,1.2,.4,1) both; }
-  @keyframes flyin { from { transform: translate(var(--fx), var(--fy)) scale(.3); opacity: 0; } }
-  .word { font-weight: 800; font-size: clamp(18px, 3.4vw, 36px); text-shadow: 0 2px 10px rgba(0,0,0,.5); animation: floatword 2.8s ease-in-out both; }
-  @keyframes floatword { 0% { opacity: 0; transform: translateY(20px); } 20%, 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px); } }
+  /* 下の余白は、段階の名前といいね数と一言の分（画面の大きさに合わせて、.caption の文字の大きさと同じ式で取る）*/
+  .s-asia { background: linear-gradient(135deg, #0f766e, #155e75, #1e3a8a); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: min(3vh, 28px);
+    padding: calc(56px + env(safe-area-inset-top)) 10px calc(8vh + 2.8 * min(8vw, 10vh) + 30px); }
+  @media (max-height: 480px) { .s-asia { gap: 4px; } .s-asia .globe { font-size: 22vh !important; } }   /* 横向きスマホは高さが足りないので、地球を小さくする */
+  .w-row { display: flex; flex-wrap: wrap; justify-content: center; gap: .25em 1em; }
+  .s-asia .globe { position: static; font-size: min(38vw, 26vh); animation: gbeat .28s .2s 6 ease-out; }
+  @keyframes gbeat { from { transform: scale(1.14); } }
+  .word { font-weight: 800; font-size: clamp(16px, min(6.4vw, 5vh), 46px); line-height: 1.2; white-space: nowrap; text-shadow: 0 2px 10px rgba(0,0,0,.6); animation: wordin .32s cubic-bezier(.2,1.7,.4,1) both; }
+  @keyframes wordin { from { transform: scale(.2); opacity: 0; } }
 
   /* 地球 */
   .s-earth { background: radial-gradient(circle, #0c4a6e, #000 70%); }
-  .s-earth .planet { left: 50%; top: 45%; font-size: min(46vw, 380px); transform: translate(-50%, -50%); filter: drop-shadow(0 0 40px #38bdf8); }
+  .s-earth .planet { left: 50%; top: 45%; font-size: min(46vw, 42vh, 380px); transform: translate(-50%, -50%); filter: drop-shadow(0 0 40px #38bdf8); animation: earthout 2.07s cubic-bezier(.55,0,.1,1) both; }
+  @keyframes earthout { from { transform: translate(-50%, -50%) scale(9); } }   /* 地面から一気に引いていく。曲（earth）のドンと同時に止まる */
+  .s-earth .orbit, .s-earth .ping { visibility: hidden; }
+  .s-earth.on .orbit, .s-earth.on .ping { visibility: visible; }
   .orbit { position: absolute; left: 50%; top: 45%; width: 0; height: 0; animation: spin 4s linear infinite; }
   .orbit span { position: absolute; font-size: min(8vw, 56px); }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -327,41 +373,59 @@ export const HTML = String.raw`<!doctype html>
   @keyframes twinkle { 50% { opacity: .2; } }
 
   /* 太陽系 */
-  .s-solar { background: #000; }
-  .s-solar .sun { left: 50%; top: 45%; transform: translate(-50%, -50%); font-size: min(26vw, 200px); filter: drop-shadow(0 0 60px #f59e0b); animation: pulse 1.2s ease-in-out infinite; }
+  .s-solar { background: radial-gradient(circle at 50% 45%, #2a2466, #0b0a2a 62%, #05040f); }   /* 宇宙系の背景は純黒にしない（真っ暗に見えて、故障と間違えられる）*/
+  .s-solar .sun { left: 50%; top: 45%; transform: translate(-50%, -50%); font-size: min(26vw, 30vh, 200px); filter: drop-shadow(0 0 60px #f59e0b); animation: pulse 1.2s ease-in-out infinite, sunup .5s 1.9s cubic-bezier(.2,1.5,.4,1) both; }
+  @keyframes sunup { from { transform: translate(-50%, -50%) scale(.3); } }
   @keyframes pulse { 50% { filter: drop-shadow(0 0 100px #fbbf24); } }
-  .ring { position: absolute; left: 50%; top: 45%; border: 1px solid rgba(255,255,255,.18); border-radius: 50%; animation: spin linear infinite; }
-  .ring i { position: absolute; top: -8px; left: 50%; width: 16px; height: 16px; border-radius: 50%; font-style: normal; display: grid; place-items: center; }
+  .ring { position: absolute; left: 50%; top: 45%; border: 1px solid rgba(255,255,255,.18); border-radius: 50%; opacity: 0; animation: spin var(--sd, 4s) linear infinite, ringin .22s calc(.2s + var(--k) * .28s) ease-out forwards; }
+  @keyframes ringin { to { opacity: 1; } }
+  .ring i { position: absolute; top: -13px; left: 50%; width: 26px; height: 26px; border-radius: 50%; font-style: normal; display: grid; place-items: center; }
+  .ring i::after { content: "❤️"; position: absolute; left: 90%; top: -16px; font-size: 20px; line-height: 1; }
 
   /* 銀河 */
-  .s-galaxy { background: #000; }
+  .s-galaxy { background: radial-gradient(circle at 50% 45%, #2a2466, #0b0a2a 62%, #05040f); }
   .spiral { position: absolute; left: 50%; top: 45%; width: min(80vmin, 640px); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
     background: conic-gradient(from 0deg, transparent, #a78bfa, transparent 25%, #f0abfc, transparent 50%, #93c5fd, transparent 75%, #c4b5fd, transparent);
     -webkit-mask: radial-gradient(circle, #000 8%, rgba(0,0,0,.7) 30%, transparent 70%); mask: radial-gradient(circle, #000 8%, rgba(0,0,0,.7) 30%, transparent 70%);
     animation: spin2 6s linear infinite; filter: blur(2px); }
   @keyframes spin2 { to { transform: translate(-50%, -50%) rotate(360deg); } }
-  .core { position: absolute; left: 50%; top: 45%; width: 80px; height: 80px; margin: -40px; border-radius: 50%; background: #fff; box-shadow: 0 0 80px 30px #e9d5ff; }
+  .core { position: absolute; left: 50%; top: 45%; width: 80px; height: 80px; margin: -40px; border-radius: 50%; background: #fff; box-shadow: 0 0 80px 30px #e9d5ff; animation: coreon .5s 1.55s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes coreon { from { transform: scale(0); } }
+  .galwrap { position: absolute; inset: 0; transform-origin: 50% 45%; animation: galin 1.7s cubic-bezier(.35,0,.15,1) both; }
+  @keyframes galin { from { scale: .14; rotate: -1080deg; } }
 
   /* 銀河団 */
-  .s-cluster { background: #000; }
-  .mini { position: absolute; width: 120px; aspect-ratio: 1; border-radius: 50%; animation: approach 2.5s ease-out both; }
+  .s-cluster { background: radial-gradient(circle at 50% 45%, #2a2466, #0b0a2a 62%, #05040f); }
+  .mini { position: absolute; width: 120px; aspect-ratio: 1; border-radius: 50%; animation: approach .7s cubic-bezier(.15,.8,.3,1) both; }
+  .mini.main { left: 50%; top: 45%; width: 24vmin; margin: -12vmin; animation: pullback 1.5s cubic-bezier(.6,0,.15,1) both; }
+  @keyframes pullback { from { transform: scale(6); } }
   .mini::before { content: ""; position: absolute; inset: 0; border-radius: 50%; animation: spin 4s linear infinite;
     background: radial-gradient(circle, #fff 0 5%, transparent 12%), conic-gradient(#c4b5fd, transparent 25%, #fbcfe8 50%, transparent 75%, #93c5fd);
     -webkit-mask: radial-gradient(circle, #000 15%, transparent 70%); mask: radial-gradient(circle, #000 15%, transparent 70%); }
   @keyframes approach { from { transform: scale(.05); opacity: 0; } }
 
   /* 宇宙：ビッグバンとワープ */
-  .s-universe { background: #000; }
-  .bang { position: absolute; inset: 0; background: radial-gradient(circle, #fff, #fde68a 20%, #f97316 40%, transparent 70%); animation: bang 1.4s ease-out forwards; }
+  .s-universe { background: radial-gradient(circle at 50% 45%, #2a2466, #0b0a2a 62%, #05040f); }
+  .s-universe.on .bdot { display: none; }
+  .bdot { position: absolute; left: 50%; top: 45%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 30px 10px #fff; animation: bdot .9s ease-in both; }
+  @keyframes bdot { to { transform: scale(3.2); } }
+  .bang { position: absolute; inset: 0; transform-origin: 50% 45%; background: radial-gradient(circle at 50% 45%, #fff, #fde68a 20%, #f97316 40%, transparent 70%); animation: bang 1.4s .9s ease-out both; }
   @keyframes bang { 0% { transform: scale(0); opacity: 1; } 60% { opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
   .streak { position: absolute; left: 50%; top: 45%; height: 2px; width: 30vmax; transform-origin: 0 50%; background: linear-gradient(90deg, transparent, #fff);
     animation: warp .8s linear infinite; }
+  .s-universe .streak { animation-fill-mode: backwards; }
   @keyframes warp { from { scale: 0 1; translate: 0 0; opacity: 0; } 30% { opacity: 1; } to { scale: 1 1; opacity: 0; } }
 
   /* 四次元 */
-  .s-4d { background: #0b0118; animation: hue 2s linear infinite; }
+  .s-4d { background: radial-gradient(circle at 50% 45%, #3b1a7a, #14073a 62%, #080320); animation: hue 3.2s linear infinite; }
   @keyframes hue { to { filter: hue-rotate(360deg); } }
-  .cube { position: absolute; left: 50%; top: 45%; border: 3px solid #f0abfc; animation: spin3d 3s linear infinite; box-shadow: 0 0 30px #c026d3, inset 0 0 30px #c026d3; }
+  .cube { position: absolute; left: 50%; top: 45%; border: 4px solid #f0abfc; animation: spin3d 3s linear infinite; box-shadow: 0 0 30px #c026d3, inset 0 0 30px #c026d3; }
+  /* 最初は大きな時計が逆回りするだけ。時間が戻りきったら、箱と時計が現れる */
+  .s-4d .cube, .s-4d .clock { visibility: hidden; }
+  .s-4d.on .cube, .s-4d.on .clock { visibility: visible; }
+  .s-4d.on .bigclock { display: none; }
+  .bigclock { left: 50%; top: 45%; font-size: min(44vw, 340px); transform: translate(-50%, -50%); animation: rewindbig .55s linear infinite; }
+  @keyframes rewindbig { to { transform: translate(-50%, -50%) rotate(-360deg); } }
   @keyframes spin3d { to { transform: translate(-50%, -50%) rotateX(360deg) rotateY(720deg) rotateZ(180deg); } }
   .clock { font-size: min(10vw, 70px); animation: rewind 1.5s linear infinite; }
   @keyframes rewind { to { transform: rotate(-360deg); } }
@@ -422,63 +486,90 @@ export const HTML = String.raw`<!doctype html>
   /* ガクッと揺れる（明るさは変えない。1.4秒に2回まで）*/
   @keyframes gjolt { 0%, 38%, 46%, 68%, 74%, 100% { transform: none; } 40% { transform: translate(6px, -3px) skewX(3deg); } 70% { transform: translate(-5px, 2px) skewX(-2deg); } }
 
+  .s-glitch .caption .lv { font-size: clamp(24px, min(5.6vw, 9vh), 64px); }   /* 名前が長く、カメラで少し大きくなるので、端に届かない大きさに */
+
   /* 神：金色の天界、回る光、雲の上でひれ伏すバズ神 */
   .s-kami { background: radial-gradient(circle at 50% 38%, #fffbeb, #fde047 28%, #b45309 72%, #451a03); }
+  .k-door { position: absolute; top: 0; bottom: 0; width: 51%; z-index: 3; background: repeating-linear-gradient(90deg, #5b3410 0 26px, #4a2a0c 26px 30px); border-inline: 6px solid #f59e0b; animation: kdoor 1.4s .1s cubic-bezier(.65,0,.3,1) both; }
+  .k-door.l { left: 0; --kd: -104%; }
+  .k-door.r { right: 0; --kd: 104%; }
+  @keyframes kdoor { to { transform: translateX(var(--kd)); } }
   .s-kami .krays { position: absolute; left: 50%; top: 38%; width: 240vmax; height: 240vmax; margin: -120vmax 0 0 -120vmax;
     background: repeating-conic-gradient(rgba(255,255,255,.5) 0 4deg, transparent 4deg 12deg); animation: cispin 16s linear infinite;
     -webkit-mask: radial-gradient(circle, #000 0, transparent 40%); mask: radial-gradient(circle, #000 0, transparent 40%); }
-  .s-kami .torii { left: 50%; top: 24%; transform: translate(-50%, -50%); font-size: min(28vw, 220px); filter: drop-shadow(0 0 40px #fff); }
+  .s-kami .torii { left: 50%; top: 23%; transform: translate(-50%, -50%); font-size: min(28vw, 24vh, 220px); filter: drop-shadow(0 0 40px #fff); }
   .cloud { position: absolute; font-size: min(24vw, 190px); line-height: 1; animation: drift 6s ease-in-out infinite alternate; }
   @keyframes drift { to { translate: 5vw 0; } }
-  .s-kami .kneel { position: absolute; left: 50%; bottom: 25vh; width: min(30vw, 200px); margin-left: calc(min(30vw, 200px) / -2); transform-origin: 50% 96%;
+  .s-kami .kneel { position: absolute; left: 50%; bottom: max(25vh, var(--caph)); width: min(30vw, 34vh, 200px); margin-left: calc(min(30vw, 34vh, 200px) / -2); transform-origin: 50% 96%;
     animation: bow 1.8s ease-in-out infinite; }
   @keyframes bow { 0%, 100% { transform: perspective(500px) rotateX(0) scaleY(.92); } 40%, 65% { transform: perspective(500px) rotateX(-48deg) scaleY(.8); } }
-  .s-kami .haha { left: 57%; bottom: 52vh; color: #78350f; animation-delay: .6s; }
+  .s-kami .haha { left: 57%; bottom: max(52vh, calc(var(--caph) + 24vh)); color: #78350f; animation-delay: 2.2s; }
   .s-kami .caption .lv, .s-kami .caption .sub { text-shadow: 0 2px 14px #78350f, 0 0 4px #451a03, 0 0 2px #451a03; }
+  .s-kami .caption .likes { color: #fff; -webkit-text-stroke: .07em #7f1d1d; text-shadow: 0 2px 12px #7f1d1d; }
   .rise { position: absolute; bottom: -24px; color: #fff; font-size: 22px; text-shadow: 0 0 10px #fde047; animation: rise linear infinite; }
   @keyframes rise { to { transform: translateY(-110vh); opacity: 0; } }
 
   /* ── パチンコ風カットイン（シークレット段階に上がるたび）── */
   /* --d はカットインの長さ、--k は中の動きの速さの倍率（通過は速く、最後はスロー）*/
   .cutin { position: absolute; inset: 0; z-index: 8; overflow: hidden; --c1: #0b1d4d; --c2: #3b82f6; --c3: #bfdbfe; --d: 1600ms; --k: 1;
-    background: radial-gradient(circle, var(--c2), var(--c1) 70%); animation: cishake .45s calc(.5s * var(--k)) linear; }
-  .cutin.final { z-index: 10; animation: cishake .7s calc(.48s * var(--k)) linear, cizoom var(--d) cubic-bezier(.1,.8,.2,1) both; }
+    background: radial-gradient(circle, var(--c2), var(--c1) 70%); }
+  .cutin.final { z-index: 10; animation: cizoom var(--d) cubic-bezier(.1,.8,.2,1) both; }
   @keyframes cizoom { from { scale: 1.25; } }
   .cutin.freeze { filter: grayscale(.7) brightness(.4); transition: filter .4s; }
   .cutin.freeze, .cutin.freeze * { animation-play-state: paused !important; }
+  .cutin.freeze .ci-txt { opacity: 0; transition: opacity .2s; }   /* 「！？」の裏に前の文字を残さない */
   .ci-ring { position: absolute; left: 50%; top: 50%; z-index: 6; width: 0; height: 0; border: 10px solid #fff; border-radius: 50%; translate: -50% -50%; pointer-events: none;
     box-shadow: 0 0 40px var(--c3); animation: ciring .8s calc(.48s * var(--k)) ease-out both; }
-  @keyframes ciring { from { width: 0; height: 0; opacity: 1; } to { width: 230vmax; height: 230vmax; opacity: 0; } }
+  @keyframes ciring { from { width: 0; height: 0; opacity: 0; } 1% { width: 0; height: 0; opacity: 1; } to { width: 230vmax; height: 230vmax; opacity: 0; } }   /* 始まるまでは見せない（真ん中に白い点が残らないように）*/
   /* 溜め：最後の1段の前に、暗くなって心臓の音 */
   .tame { position: absolute; inset: 0; z-index: 9; display: grid; place-items: center; pointer-events: none;
-    background: radial-gradient(circle, rgba(0,0,0,.15), rgba(0,0,0,.92) 70%); animation: tamein .3s ease-out both; }
+    background: radial-gradient(circle, rgba(0,0,0,.35), rgba(0,0,0,.92) 70%); background: radial-gradient(circle, color-mix(in srgb, var(--tc) 38%, rgba(0,0,0,.5)), rgba(0,0,0,.92) 72%); animation: tamein .3s ease-out both; }   /* 真っ暗にしない：次の段階の色が真ん中でほのかに光る */
   @keyframes tamein { from { opacity: 0; } }
   .tame-txt { font-weight: 800; font-size: clamp(64px, 18vw, 200px); color: #fff; text-shadow: 0 0 30px var(--tc), 0 0 80px var(--tc);
     animation: heartbeat .9s ease-out infinite; }
   @keyframes heartbeat { 0%, 30%, 100% { transform: scale(1); } 7% { transform: scale(1.28); } 19% { transform: scale(1.14); } }
+  /* ∬… の前ぶれ：溜めの様子がおかしくなる（anomaly）。明るさは点滅させない */
+  .tame.stuck .tame-txt { animation-play-state: paused; }
+  .tame.bug { inset: -4%; animation: tamein .3s ease-out both, ajolt 1.2s linear infinite; background: radial-gradient(circle, rgba(0,20,8,.5), rgba(0,0,0,.96) 70%); }   /* 揺れても端が見えないよう、少し大きく */
+  @keyframes ajolt { 0%, 36%, 44%, 78%, 86%, 100% { transform: none; } 38% { transform: translate(10px, -4px) rotate(-1.5deg); } 80% { transform: translate(-12px, 5px) rotate(1.2deg); } }
+  .tame.bug .tame-txt { animation: none; color: #052e16; -webkit-text-stroke: .02em #4ade80; text-shadow: -.05em 0 #f0f, .05em 0 #0ff; }
+  .a-slip { position: absolute; left: -10%; right: -10%; top: 24%; height: 7vh; background: linear-gradient(90deg, transparent, rgba(34,197,94,.22), rgba(217,70,239,.18), transparent); animation: aslip 1.3s ease-in-out infinite alternate; pointer-events: none; }
+  .a-slip.b { top: 58%; height: 11vh; animation-duration: 1.7s; animation-direction: alternate-reverse; }
+  .a-slip.c { top: 72%; height: 4vh; animation-duration: 1s; }
+  @keyframes aslip { from { transform: translateX(-8vw); } to { transform: translateX(8vw); } }
+  .a-log { position: absolute; left: 6%; right: 6%; bottom: 14%; text-align: left; font-family: ui-monospace, Consolas, monospace; font-weight: 700; font-size: clamp(14px, min(4vw, 3vh), 22px); line-height: 1.8; color: #4ade80; text-shadow: 0 0 10px #16a34a; }
+  .a-last { color: #f0abfc; text-shadow: 0 0 12px #c026d3; }
+  .tame.black { background: #000; animation: none; }
+  #stage:has(.tame.bug) .hud { color: #4ade80; filter: blur(1.2px); }
+  #stage:has(.tame.black) .hud, body:has(.tame.black) .toasts { opacity: 0; }
+  .a-eye { font-size: clamp(90px, min(34vw, 34vh), 300px); line-height: 1; filter: drop-shadow(0 0 30px #16a34a); animation: aeye .5s cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes aeye { from { transform: scale(1.6, .02); opacity: 0; } }
   .cutin.t1 { --c1: #052e16; --c2: #16a34a; --c3: #bbf7d0; }
   .cutin.t2 { --c1: #450a0a; --c2: #dc2626; --c3: #fecaca; }
   .cutin.t3 { --c1: #422006; --c2: #eab308; --c3: #fef9c3; }
   .cutin.t4 { --c1: #1e1b4b; --c2: #db2777; --c3: #fff; }
   .cutin.t5 { --c1: #451a03; --c2: #f59e0b; --c3: #fffbeb; }
-  .cutin.t6 { --c1: #000; --c2: #14532d; --c3: #4ade80; animation: gjolt 1.4s steps(1) infinite; }
-  .ci-lines { position: absolute; left: 50%; top: 50%; width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax; opacity: .7;
+  .cutin.t6 { --c1: #000; --c2: #14532d; --c3: #4ade80; inset: -12px; animation: gjolt 1.4s steps(1) infinite; }   /* 揺れても端が見えないよう、少し大きく */
+  .ci-lines { position: absolute; left: 50%; top: 50%; width: 150vmax; height: 150vmax; margin: -75vmax 0 0 -75vmax; opacity: .7;
     background: repeating-conic-gradient(var(--c3) 0 1.6deg, transparent 1.6deg 7deg);
-    -webkit-mask: radial-gradient(circle, transparent 4%, #000 20%); mask: radial-gradient(circle, transparent 4%, #000 20%); animation: cispin calc(1.1s * var(--k)) linear infinite; }
+    -webkit-mask: radial-gradient(circle, transparent 7%, #000 34%); mask: radial-gradient(circle, transparent 7%, #000 34%); animation: cispin 40s linear infinite; }
   @keyframes cispin { to { transform: rotate(360deg); } }
   .cutin.t4 .ci-lines, .cutin.t5 .ci-lines { background: repeating-conic-gradient(#f87171 0 2deg, transparent 2deg 5deg, #facc15 5deg 7deg, transparent 7deg 10deg,
     #4ade80 10deg 12deg, transparent 12deg 15deg, #60a5fa 15deg 17deg, transparent 17deg 20deg, #c084fc 20deg 22deg, transparent 22deg 25deg); }
-  .cutin.t4 .ci-lines { animation: cispin 1.1s linear infinite, hue 1s linear infinite; }
-  .cutin.t6 .ci-lines { background: repeating-conic-gradient(#22c55e 0 1deg, transparent 1deg 4deg, #f0f 4deg 4.5deg, transparent 4.5deg 9deg); animation-duration: 1.8s; }
-  .ci-flash { position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none; animation: ciflash calc(.35s * var(--k)) ease-out forwards; }
-  @keyframes ciflash { to { opacity: 0; } }
+  .cutin.t4 .ci-lines { animation: cispin 40s linear infinite, hue 4s linear infinite; }
+  .cutin.t6 .ci-lines { background: repeating-conic-gradient(#22c55e 0 1deg, transparent 1deg 4deg, #f0f 4deg 4.5deg, transparent 4.5deg 9deg); }
+  .ci-flash { position: absolute; inset: 0; z-index: 5; background: var(--c3); pointer-events: none; animation: ciflash calc(.35s * var(--k)) ease-out forwards; }
+  @keyframes ciflash { from { opacity: .45; } to { opacity: 0; } }
   .ci-band { position: absolute; left: -12%; right: -12%; top: 50%; height: clamp(150px, 30vh, 260px); translate: 0 -50%;
     background: linear-gradient(100deg, var(--c1), var(--c2) 55%, var(--c3)); border-top: 6px solid #fff; border-bottom: 6px solid #fff;
     box-shadow: 0 0 60px var(--c2); animation: ciband var(--d) cubic-bezier(.2,.9,.2,1) forwards; }
+  .cutin:not(.final) .ci-band { animation-name: cibandstay, cijolt; animation-duration: var(--d), .24s; animation-delay: 0s, calc(var(--d) * .16); animation-timing-function: cubic-bezier(.2,.9,.2,1), ease-out; animation-fill-mode: forwards, none; }
+  @keyframes cibandstay { 0% { transform: skewY(-7deg) translateX(-120%); } 16% { transform: skewY(-7deg) translateX(0); } 100% { transform: skewY(-7deg) translateX(3%); } }
+  @keyframes cijolt { from { translate: -12px calc(-50% + 6px); } to { translate: 0 -50%; } }
   @keyframes ciband { 0% { transform: skewY(-7deg) translateX(-120%); } 16% { transform: skewY(-7deg) translateX(0); }
     86% { transform: skewY(-7deg) translateX(3%); } 100% { transform: skewY(-7deg) translateX(130%); } }
   .cutin.t4 .ci-band { background: linear-gradient(100deg, #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ec4899);
-    animation: ciband var(--d) cubic-bezier(.2,.9,.2,1) forwards, hue 1.2s linear infinite; }
+    animation: cibandstay var(--d) cubic-bezier(.2,.9,.2,1) forwards, hue 4s linear infinite; }
   .cutin.t5 .ci-band { background: linear-gradient(100deg, #78350f, #f59e0b 40%, #fde047 62%, #fffbeb);
     border-image: linear-gradient(90deg, #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7) 1; }
   .cutin.t6 .ci-band { background: repeating-linear-gradient(0deg, #000 0 3px, #052e16 3px 6px); border-color: #22c55e; box-shadow: 0 0 40px #22c55e; }
@@ -499,12 +590,24 @@ export const HTML = String.raw`<!doctype html>
   .cutin.t4 .ci-stamp, .cutin.t5 .ci-stamp { background: linear-gradient(90deg, #ef4444, #facc15, #22c55e, #3b82f6, #a855f7); }
   .cutin.t5 .ci-stamp { color: #fffbeb; border-color: #fde047; font-size: clamp(36px, 10vw, 110px); }
   .cutin.t6 .ci-stamp { background: #000; border-color: #22c55e; color: #4ade80; font-family: monospace; }
+  .cutin.t6 .ci-flash { background: #16a34a; }   /* 真っ暗の直後なので、白く光らせない */
+  /* まだ届いていない段：名前を伏せた「？」。バズ神は影だけ。「？」の出方を1回ごとに変える（q0〜q5 は太陽系〜神の順）*/
+  .cutin.ask .ci-god { filter: brightness(0) drop-shadow(0 0 18px var(--c3)); }
+  .cutin.ask .ci-name { font-size: min(26vw, 22vh); line-height: 1; }
+  .cutin.q1 .ci-name { animation-name: qspin; }
+  .cutin.q2 .ci-name { animation-name: qdrop; animation-timing-function: ease-in; }
+  .cutin.q3 .ci-name { animation-name: qzoom; }
+  .cutin.q4 .ci-name { animation-name: qswing; animation-timing-function: ease-out; }
+  .cutin.q5 .ci-name { animation-name: qspin; animation-direction: reverse; }
+  @keyframes qspin { from { rotate: -540deg; scale: .2; opacity: 0; } }
+  @keyframes qdrop { 0% { translate: 0 -110vh; } 70% { translate: 0 0; scale: 1; } 82% { scale: 1.3 .7; } 100% { translate: 0 0; scale: 1; } }
+  @keyframes qzoom { from { scale: 7; opacity: 0; } }
+  @keyframes qswing { 0% { rotate: -70deg; scale: .4; opacity: 0; } 40% { rotate: 30deg; scale: 1.3; opacity: 1; } 70% { rotate: -14deg; scale: 1; } 100% { rotate: 0deg; scale: 1; } }
   /* エンドコンテンツのカットイン：無は白と灰で静かに（集中線も止める）、創世は夜明け、真・家庭内は夕焼け */
   .ci-new { position: absolute; left: 0; right: 0; top: 11%; margin: auto; width: fit-content; z-index: 4; rotate: -4deg; background: #facc15; color: #b91c1c;
     font-weight: 800; font-size: clamp(20px, 4.6vw, 42px); padding: 4px 20px; border-radius: 999px; border: 4px solid #fff; white-space: nowrap; box-shadow: 0 0 30px #facc15;
     animation: popin .4s calc(.7s * var(--k)) cubic-bezier(.2,1.6,.4,1) both, wobble .35s calc(1.1s * var(--k)) ease-in-out 4 alternate; }
   @keyframes wobble { to { rotate: 4deg; scale: 1.08; } }
-  @keyframes cishake { 10%, 50%, 90% { transform: translate(-9px, 5px); } 30%, 70% { transform: translate(9px, -6px); } }
   /* 640px〜：帯を太く、バズ神を大きく帯からはみ出させる */
   @media (min-width: 640px) {
     .ci-band { height: clamp(150px, 36vh, 320px); }
@@ -528,8 +631,9 @@ export const HTML = String.raw`<!doctype html>
   @keyframes rain { to { transform: translateY(120vh); } }
   .eye { left: 50%; top: 54%; transform: translate(-50%, -50%); font-size: min(20vw, 160px); animation: blink2 1s infinite; }
   @keyframes blink2 { 90% { transform: translate(-50%, -50%) scaleY(1); } 95% { transform: translate(-50%, -50%) scaleY(.1); } }
-  .unlock { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); z-index: 6; background: linear-gradient(90deg, #7c3aed, #db2777); padding: 8px 18px;
+  .unlock { position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 6; background: linear-gradient(90deg, #7c3aed, #db2777); padding: 8px 18px;
     border-radius: 999px; font-weight: 800; white-space: nowrap; animation: popin .6s cubic-bezier(.2,1.6,.4,1) both; box-shadow: 0 0 30px #c026d3; }
+  @media (max-height: 480px) { .unlock { top: calc(14px + env(safe-area-inset-top)); } }   /* 横向きスマホは高さが足りず、絵に重なるので上に寄せる（スキップとは横に離れている）*/
   .unlock.end { background: #18181b; color: #f4f4f5; box-shadow: 0 0 24px rgba(255,255,255,.25); border: 1px solid #52525b; }
 
   /* ── エンドコンテンツの場面（どれも明るさを一気に変えない）── */
@@ -550,17 +654,17 @@ export const HTML = String.raw`<!doctype html>
   @keyframes gnring { to { width: 120vmax; height: 120vmax; opacity: 0; } }
   .gn-body { font-size: min(10vw, 70px); opacity: 0; animation: gnbody 1.4s ease-out forwards, float 3s ease-in-out 1.4s infinite; }
   @keyframes gnbody { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: none; } }
-  .sprout { left: 50%; top: 52%; translate: -50% -50%; font-size: min(26vw, 180px); filter: drop-shadow(0 0 30px #86efac); animation: sprout 2.4s cubic-bezier(.2,1.4,.4,1) .5s both; }
+  .sprout { left: 50%; top: 46%; translate: -50% -50%; font-size: min(26vw, 30vh, 180px); filter: drop-shadow(0 0 30px #86efac); animation: sprout 2.4s cubic-bezier(.2,1.4,.4,1) .5s both; }
   @keyframes sprout { from { transform: scale(0) rotate(-20deg); } }
   /* 真・家庭内：夕日の居間。最初の「家庭内」で寝転んでいた妹が起き上がる */
   .s-truehome { background: linear-gradient(#f59e0b, #b45309 55%, #7c2d12); }
-  .s-truehome .floor { background: linear-gradient(#92400e, #78350f); }
+  .s-truehome .floor { background: linear-gradient(#92400e, #78350f); height: max(30%, calc(var(--caph) + 12px)); }
   .th-window { position: absolute; left: 6%; top: 10%; width: 22%; height: 28%; border: 10px solid #7c2d12; border-radius: 6px; background: linear-gradient(#fdba74, #fde68a); }
-  .th-sis { left: 46%; bottom: 30%; font-size: min(18vw, 150px); transform-origin: 50% 90%; animation: situp 1.2s .4s cubic-bezier(.2,1.3,.4,1) both; }
+  .th-sis { left: 46%; bottom: max(30%, var(--caph)); font-size: min(18vw, 22vh, 150px); transform-origin: 50% 90%; animation: situp 1.2s .4s cubic-bezier(.2,1.3,.4,1) both; }
   @keyframes situp { from { transform: rotate(-90deg); } }
   .th-omoro { left: 52%; top: 22%; color: #7c2d12; animation-delay: 1.5s; }
-  .th-fam { bottom: 28%; font-size: min(12vw, 100px); animation: hop .5s ease-in-out 1.6s infinite alternate; }
-  .th-dog { left: 60%; bottom: 27%; font-size: min(9vw, 70px); animation: hop .3s ease-in-out 1.6s infinite alternate; }
+  .th-fam { bottom: max(28%, var(--caph)); font-size: min(12vw, 16vh, 100px); animation: hop .5s ease-in-out 1.6s infinite alternate; }
+  .th-dog { left: 60%; bottom: max(27%, var(--caph)); font-size: min(9vw, 12vh, 70px); animation: hop .3s ease-in-out 1.6s infinite alternate; }
   .th-heart { position: absolute; bottom: -30px; font-size: 26px; opacity: 0; animation: thheart linear infinite; }
   @keyframes thheart { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-80vh); } }
 
@@ -654,8 +758,8 @@ export const HTML = String.raw`<!doctype html>
   @keyframes morphring { to { width: 160vmax; height: 160vmax; opacity: 0; } }
 
   /* 地球から上のパラメーター表示 */
-  .lb { display: inline-block; margin-left: 6px; vertical-align: middle; font-size: 11px; font-weight: 800; color: #fff; padding: 2px 8px; border-radius: 6px;
-    background: linear-gradient(90deg, #ef4444, #f59e0b); letter-spacing: .05em; }
+  .lb { display: inline-block; margin-left: 10px; vertical-align: middle; font-size: 12px; font-weight: 800; color: #fff; padding: 2px 8px; border-radius: 6px;
+    background: linear-gradient(90deg, #b91c1c, #b45309); letter-spacing: .05em; }
   .lb:empty { display: none; }
   .lb.max { background: #facc15; color: #422006; }
   .lb.void { background: #e4e4e7; color: #27272a; }
@@ -686,22 +790,27 @@ export const HTML = String.raw`<!doctype html>
   .mute:hover { background: #1c2030; }
   .sound input { display: none; width: 130px; accent-color: #1d9bf0; cursor: pointer; }
   .sound.open input { display: block; }
-  @media (min-width: 640px) {
+  @media (pointer: coarse) { .sound input { height: 44px; } }
+  /* 横向きのスマホ（高さ480px以下）は、幅があってもスマホと同じ。いつも開いておくと場面に重なるため */
+  @media (min-width: 640px) and (min-height: 481px) {
     .sound { right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); padding: 4px 14px 4px 4px; }
-    .mute { width: 38px; height: 38px; }
     .sound input { display: block; width: 96px; }
   }
+  @media (min-width: 640px) and (min-height: 481px) and (pointer: fine) { .mute { width: 38px; height: 38px; } }
   /* 全画面の演出中とランキングを開いている間は、ボタンだけにしてじゃましない */
-  body:has(#cinema.show) .sound:not(.open), body:has(#boardModal.show) .sound:not(.open) { padding: 4px; }
-  body:has(#cinema.show) .sound:not(.open) input, body:has(#boardModal.show) .sound:not(.open) input { display: none; }
+  body:has(#cinema.show) .sound:not(.open), body:has(#boardModal.show) .sound:not(.open), body:has(#mapModal.show) .sound:not(.open) { padding: 4px; }
+  body:has(#cinema.show) .sound:not(.open) input, body:has(#boardModal.show) .sound:not(.open) input, body:has(#mapModal.show) .sound:not(.open) input { display: none; }
 
   /* 紙吹雪 */
   .confetti { position: fixed; top: -12px; width: 8px; height: 14px; z-index: 60; pointer-events: none; animation: fall linear forwards; }
   @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
 
   /* ランキングのモーダル */
-  #boardModal { background: rgba(0,0,0,.6); display: none; place-items: center; padding: 16px; }
-  #boardModal.show { display: grid; }
+  #boardModal, #mapModal { background: rgba(0,0,0,.6); display: none; place-items: center; padding: 16px; }
+  #boardModal.show, #mapModal.show { display: grid; }
+  .mm-title { flex: 1; padding-left: 6px; font-size: 15px; }
+  .mm-title small { margin-left: 6px; color: var(--sub); font-weight: 500; font-size: 12px; }
+  .mm-body { padding: 12px 12px 64px; overflow-y: auto; overscroll-behavior: contain; }
   .modal { width: min(560px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
     animation: popin .3s ease both; overflow: hidden; }
   .modal header { display: flex; align-items: center; gap: 6px; padding: 12px 10px; border-bottom: 1px solid var(--line); }
@@ -709,12 +818,12 @@ export const HTML = String.raw`<!doctype html>
     border: 1px solid var(--line); background: transparent; white-space: nowrap; }
   .tab.on { color: var(--text); background: var(--panel2); border-color: #3b4252; }
   .close { flex: none; width: 44px; height: 44px; background: none; border: 0; font-size: 22px; cursor: pointer; color: var(--sub); }
-  .board { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
+  .board { list-style: none; padding: 0 0 64px; margin: 0; overflow-y: auto; overscroll-behavior: contain; }   /* 下の余白：右下の音量ボタンに最後の行が隠れないように */
   /* スマホ：投稿文を1行目、点数といいね数を2行目に。640px〜：1行に並べる */
   .board li { display: flex; flex-wrap: wrap; row-gap: 2px; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); animation: fadein .4s ease backwards; }
   .board .rank { width: 28px; text-align: center; font-weight: 800; color: var(--sub); flex: none; }
-  .board .txt { flex: 1 1 calc(100% - 40px); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .board .meta { flex-basis: 100%; padding-left: 40px; color: var(--sub); font-size: 13px; white-space: nowrap; }
+  .board .txt { flex: 1 1 calc(100% - 40px); min-width: 0; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+  .board .meta { flex-basis: 100%; padding-left: 40px; color: var(--sub); font-size: 13px; overflow-wrap: anywhere; }
   /* テストモードだけ出る、投稿を隠すボタン */
   .board .mod { flex-basis: 100%; display: flex; gap: 8px; padding-left: 40px; }
   .board .mod button { min-height: 44px; padding: 0 12px; border: 1px solid #7f1d1d; border-radius: 10px; background: transparent; color: #fca5a5; font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer; }
@@ -723,7 +832,7 @@ export const HTML = String.raw`<!doctype html>
     .tab { font-size: 15px; }
     .board li { flex-wrap: nowrap; }
     .board .txt { flex: 1; }
-    .board .meta { flex-basis: auto; padding-left: 0; }
+    .board .meta { flex-basis: auto; padding-left: 0; white-space: nowrap; }
     .board .mod { flex-basis: auto; padding-left: 0; }
   }
   .board .empty { color: var(--sub); justify-content: center; }
@@ -741,12 +850,29 @@ export const HTML = String.raw`<!doctype html>
     .toast { animation-name: toast; }
   }
   @keyframes toast { 0% { transform: translateX(120%); } 12%, 85% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+  /* 結果画面では、バズ神の顔や段階の名前に重ねない。スマホは音量ボタンの上、640px〜は左下に出す */
+  body:has(#result.show) .toasts { top: auto; bottom: calc(72px + env(safe-area-inset-bottom)); }
+  body:has(#result.show) .toast { animation-name: toastup; }
+  @keyframes toastup { 0% { transform: translateY(14px); opacity: 0; } 10%, 85% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+  @media (min-width: 640px) {
+    body:has(#result.show) .toasts { right: auto; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); align-items: flex-start; }
+  }
+  /* 読み上げ専用（画面には出さない）*/
+  .srlive { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+    /* 動きを止めると見えなくなるものは、見える位置に置く */
+    .toast { animation: none !important; }
+    .cutin.final .ci-band { animation: none !important; transform: skewY(-7deg); }
+    .tv .ticker { white-space: normal; padding: 8px 12px; } .tv .ticker span { padding-left: 0; }
+    .god.morph, .god.emerge { animation: none !important; }
+  }
 </style>
 </head>
 <body>
-<div class="toasts" id="toasts"></div>
+<div class="toasts" id="toasts" role="status" aria-atomic="false"></div>
+<div class="srlive" id="srLive" aria-live="polite"></div>
 <div class="sound" id="soundBox"><button class="mute" id="mute" aria-label="音を消す">🔊</button><input type="range" id="vol" min="0" max="100" step="1" aria-label="音量"></div>
 
 <div class="layout">
@@ -763,12 +889,12 @@ export const HTML = String.raw`<!doctype html>
     <div class="hero">
       <h1>ツイートバズシミュレーター</h1>
       <p>バズ神が、あなたのツイートを本気で採点します</p>
-      <div class="mapstrip" id="mapstrip"></div>
+      <button class="mapstrip" id="mapstrip" aria-label="バズマップを開く"></button>
     </div>
     <div class="card">
       <div class="composer">
         <div class="avatar" id="avatar">😎</div>
-        <textarea id="text" maxlength="140" placeholder="いまどうしてる？"></textarea>
+        <textarea id="text" maxlength="140" placeholder="いまどうしてる？" aria-label="ツイートを入力"></textarea>
       </div>
       <div class="composer-foot">
         <span class="count" id="count">0 / 140</span>
@@ -780,13 +906,13 @@ export const HTML = String.raw`<!doctype html>
     <div class="card last" id="last"></div>
   </main>
 
-  <!-- 右：トレンドと通知 -->
+  <!-- 右：ミニバズ神・ランキング・記録 -->
   <aside class="side">
     <div class="panel" style="margin-bottom:16px">
       <div class="mini-god"><div id="miniGod"></div><div class="tip" id="tip"></div></div>
     </div>
     <div class="panel" style="margin-bottom:16px">
-      <h3>🏆 ランキング <span class="minitabs" id="top3Tabs"><button class="on" data-by="score">バズ力</button><button data-by="likes">いいね</button></span></h3>
+      <h3>🏆 ランキング <span class="minitabs" id="top3Tabs"><button class="on" data-by="score" aria-pressed="true">バズ力</button><button data-by="likes" aria-pressed="false">いいね</button></span></h3>
       <ol class="top3" id="top3"></ol>
       <button class="btn sub wide" id="openBoard2">すべて見る</button>
     </div>
@@ -807,7 +933,7 @@ export const HTML = String.raw`<!doctype html>
 <div class="overlay" id="cinema"><div id="stage"></div><button class="skip" id="skip">スキップ ▶▶</button></div>
 
 <!-- 結果画面 -->
-<div class="overlay" id="result">
+<div class="overlay" id="result" role="dialog" aria-modal="true" aria-labelledby="lvname">
   <div class="resbar"><button class="resx" id="resX" aria-label="結果を閉じる">✕</button></div>
   <div class="res">
     <div class="godbox">
@@ -822,7 +948,7 @@ export const HTML = String.raw`<!doctype html>
       </div>
       <div class="axes" id="axes"></div>
       <div class="minitweet">
-        <div><span class="nm">あなた</span><span class="hd">@you ・ たった今</span></div>
+        <div><span class="nm">あなた</span><span class="hd" id="rhd">@you ・ たった今</span></div>
         <div class="body" id="rtext"></div>
         <div class="unlisted" id="unlistedNote">🙈 この投稿は、みんなのランキングには載せないでおくのじゃ</div>
         <div class="metrics">
@@ -844,7 +970,7 @@ export const HTML = String.raw`<!doctype html>
 <div class="admin" id="admin">
   <h4 id="adminHead">🧪 テストモード（タップで開閉） <button class="mini" id="adminOut">ログアウト</button></h4>
   <div id="adminLogin">
-    <input type="password" id="adminKey" placeholder="合言葉">
+    <input type="password" id="adminKey" placeholder="合言葉" aria-label="合言葉">
     <button class="btn wide" id="adminGo">入る</button>
   </div>
   <div id="adminPanel" style="display:none">
@@ -854,12 +980,21 @@ export const HTML = String.raw`<!doctype html>
 </div>
 
 <!-- ランキング -->
-<div class="overlay" id="boardModal">
-  <div class="modal" role="dialog" aria-label="ランキング">
+<div class="overlay" id="mapModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="バズマップ">
     <header>
-      <button class="tab on" data-tab="score">💥 バズ力</button>
-      <button class="tab" data-tab="likes">❤️ いいね数</button>
-      <button class="tab" data-tab="history">🕒 最新</button>
+      <b class="mm-title">🗺️ バズマップ<small id="unlockCount2"></small></b>
+      <button class="close" id="closeMap" aria-label="閉じる">✕</button>
+    </header>
+    <div class="mm-body"><ul class="map" id="map2"></ul></div>
+  </div>
+</div>
+<div class="overlay" id="boardModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="ランキング">
+    <header>
+      <button class="tab on" data-tab="score" aria-pressed="true">💥 バズ力</button>
+      <button class="tab" data-tab="likes" aria-pressed="false">❤️ いいね数</button>
+      <button class="tab" data-tab="history" aria-pressed="false">🕒 最新</button>
       <button class="close" id="closeBoard" aria-label="閉じる">✕</button>
     </header>
     <ol class="board" id="board"></ol>
@@ -906,14 +1041,26 @@ var TIPS = [
 // ── 保存データの引っ越し（「神」を追加したので、∬… の番号が 12 → 13 になった）──
 (function () {
   try {
-    if (Number(localStorage.getItem("buzz_ver") || 1) >= 2) return;
-    var u = JSON.parse(localStorage.getItem("buzz_unlocked") || "[]").map(function (i) { return i >= 12 ? i + 1 : i; });
-    localStorage.setItem("buzz_unlocked", JSON.stringify(u));
-    var b = localStorage.getItem("buzz_best");
-    if (b != null && Number(b) >= 12) localStorage.setItem("buzz_best", String(Number(b) + 1));
-    localStorage.setItem("buzz_ver", "2");
+    var ver = Number(localStorage.getItem("buzz_ver") || 1);
+    if (ver >= 3) return;
+    if (ver < 2) {
+      var u = JSON.parse(localStorage.getItem("buzz_unlocked") || "[]").map(function (i) { return i >= 12 ? i + 1 : i; });
+      localStorage.setItem("buzz_unlocked", JSON.stringify(u));
+      var b = localStorage.getItem("buzz_best");
+      if (b != null && Number(b) >= 12) localStorage.setItem("buzz_best", String(Number(b) + 1));
+    }
+    // エンドコンテンツ（保存される点数は100）が自己ベストを上書きしていた。もとの投稿は戻せないので、次の投稿から数え直す
+    var bp = JSON.parse(localStorage.getItem("buzz_best_post") || "null");
+    if (bp && bp.levelIndex >= 14) {
+      localStorage.removeItem("buzz_best_post");
+      var st = JSON.parse(localStorage.getItem("buzz_stats") || "null");
+      if (st) { st.best = null; localStorage.setItem("buzz_stats", JSON.stringify(st)); }
+    }
+    localStorage.setItem("buzz_ver", "3");
   } catch (e) {}
 })();
+
+var REDUCE = window.matchMedia("(prefers-reduced-motion: reduce)");   // 動きを減らす設定の人
 
 // ── 記号の文字化け（マイクラの §k のように、記号の部分だけがずっと入れ替わり続ける）──
 // 文字はすべて textContent で入れる。記号1文字ごとに幅を固定した span を作り、共通のタイマーで書き換える
@@ -928,13 +1075,14 @@ function obf(el, text) {
     if (buf) { el.append(buf); buf = ""; }
     var s = document.createElement("span");
     s.className = ch === "@" || ch === "^" ? "ob n" : "ob";
+    s.setAttribute("aria-hidden", "true");   // 入れ替わり続ける記号は読み上げない
     s.textContent = ch; el.append(s);
   });
   if (buf) el.append(buf);
   return el;
 }
 setInterval(function () {
-  if (document.hidden) return;
+  if (document.hidden || REDUCE.matches) return;
   var obs = document.getElementsByClassName("ob");
   for (var i = 0; i < obs.length; i++) {
     var pool = obs[i].classList.contains("n") ? OB_NARROW : OB_WIDE;
@@ -1015,7 +1163,7 @@ var Sound = (function () {
   var ctx = null, master, musicBus, sfxBus, verb, echo, noiseBuf, cur = null;
   var muted = false; try { muted = localStorage.getItem("buzz_mute") === "1"; } catch (e) {}
   // 音量（0〜100）。耳の感じ方に合わせて2乗で効かせる。最初は32（＝以前の音の約10%）
-  var vol = 32; try { var sv = localStorage.getItem("buzz_vol"); if (sv !== null && sv !== "" && !isNaN(sv)) vol = Number(sv); } catch (e) {}
+  var vol = 32; try { var sv = localStorage.getItem("buzz_vol"); if (sv !== null && sv !== "" && !isNaN(sv)) vol = Math.max(0, Math.min(100, Number(sv))); } catch (e) {}
   function volGain() { return 0.8 * Math.pow(vol / 100, 2); }
   var mood = "idle", step = 0, nextTime = 0;
   function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
@@ -1264,6 +1412,8 @@ var Sound = (function () {
       if (s % 4 === 2) ch.forEach(function (m) { pluck(t, m + 12, 0.03); });
       if (s % 2 === 0 && GOOD_MEL[bar][s / 2]) bell(t, GOOD_MEL[bar][s / 2], 0.6, 0.04);
     } },
+    // 間：音を完全に消す（報酬の直前に無音を置く）
+    hush: { bpm: 60, play: function () {} },
     // 溜め（シークレットの最後の1段の前）：心臓の音と、せり上がる音
     tame: { bpm: 100, play: function (n, t, sd) {
       if (n === 0) {
@@ -1402,6 +1552,55 @@ var Sound = (function () {
       sweep(t, [[650, 0], [1300, 0.25], [650, 0.5], [1300, 0.75], [650, 1], [1300, 1.2]], "sawtooth", 0.12);
       sweep(t, [[660, 0], [1310, 0.25], [660, 0.5], [1310, 0.75], [660, 1], [1310, 1.2]], "square", 0.05);
     },
+    // 着地の「カチッ」と、数字が回る音・止まる音
+    stop: function (t) { note(t, 1500, 0.03, { type: "square", vol: 0.07, lp: 3200, sus: 0.2, r: 0.02, sfx: 1 }); },
+    tick: function (t, f) { note(t, 520 + f * 1900, 0.03, { type: "square", vol: 0.016 + f * 0.012, lp: 4200, sus: 0.3, r: 0.02, sfx: 1 }); },
+    ding: function (t, lv) {
+      bell(t, 84, 1.2, 0.05 + lv * 0.004, { sfx: 1 });
+      if (lv >= 6) { bell(t, 91, 1.2, 0.04, { sfx: 1 }); kick(t, 0.9 + lv * 0.03, { sfx: 1 }); }
+    },
+    // シーンごとの音（どれも、そのシーンのアイデアを音で言っているだけ）
+    puff: function (t) { noise(t, 0.16, { ft: "bandpass", f: 1500, q: 0.8, vol: 0.28, sfx: 1 }); },   // フッ
+    wind: function (t, dur) { noise(t, dur, { ft: "bandpass", f: 750, fTo: 350, q: 2, vol: 0.2, sfx: 1 }); },   // 乾いた風
+    chime: function (t) { [[72, 0], [76, 0.3], [79, 0.6], [84, 0.9]].forEach(function (x) { bell(t + x[1], x[0], 0.9, 0.11, { sfx: 1 }); }); },   // ピンポンパンポーン
+    zap: function (t) {   // テレビがつく音と、ニュースの短い音
+      note(t, 1100, 0.14, { type: "square", slide: 180, vol: 0.05, lp: 2600, sus: 0.3, sfx: 1 });
+      [[79, 0.38], [84, 0.52], [88, 0.66]].forEach(function (x) { note(t + x[1], mtof(x[0]), 0.2, { type: "triangle", vol: 0.13, sus: 0.4, dec: 0.15, r: 0.1, sfx: 1 }); });
+    },
+    alert: function (t) { [0, 0.36, 0.72].forEach(function (d) { [88, 93].forEach(function (m, k) { note(t + d + k * 0.11, mtof(m), 0.12, { vol: 0.16, sus: 0.5, dec: 0.08, r: 0.08, sfx: 1 }); }); }); },   // 速報のチャイム
+    pop: function (t, k) { var f = mtof(72 + k * 2); note(t, f, 0.12, { type: "triangle", slide: f * 1.5, slideT: 0.06, vol: 0.16, sus: 0.2, dec: 0.08, r: 0.05, sfx: 1 }); },   // 1つずつ増える音
+    shimmer: function (t, dur) { noise(t, dur, { f: 1500, fTo: 9000, vol: 0.13, swell: true, sfx: 1 }); note(t, 220, dur, { slide: 1800, vol: 0.04, a: 0.2, sus: 1, r: 0.05, sfx: 1 }); },   // 集まってくる
+    whoosh: function (t, dur) { noise(t, dur, { f: 7000, fTo: 300, vol: 0.2, sfx: 1 }); note(t, 1200, dur, { slide: 90, vol: 0.05, sus: 1, r: 0.1, sfx: 1 }); },   // ぐっと引く
+    suck: function (t, dur) { noise(t, dur, { f: 200, fTo: 5000, vol: 0.09, swell: true, sfx: 1 }); },   // ふくらむ
+    bang: function (t) { kick(t, 1.7, { boom: true, sfx: 1 }); noise(t, 2.2, { f: 900, vol: 0.28, verb: 0.5, sfx: 1 }); note(t, 90, 1.4, { type: "sawtooth", slide: 28, vol: 0.14, lp: 500, sus: 0.8, r: 0.2, sfx: 1 }); },   // ビッグバン
+    rewind: function (t, dur) {   // 時間が巻き戻る：だんだん上ずる逆回しの音
+      noise(t, dur, { f: 500, fTo: 7000, vol: 0.14, swell: true, sfx: 1 });
+      for (var j = 0; j * 0.09 < dur; j++) note(t + j * 0.09, 1700 - j * 90, 0.07, { type: "triangle", vol: 0.05, sus: 0.3, r: 0.02, sfx: 1 });
+    },
+    creak: function (t, dur) { note(t, 48, dur, { type: "sawtooth", vol: 0.13, lp: 170, lpTo: 520, a: 0.3, sus: 1, r: 0.2, sfx: 1 }); },   // 扉が開く低い音
+    // ∬… の前ぶれ：低いうなりと、音程のずれた小さなバグ音。真っ暗になる前に消える
+    anomaly: function (t) {
+      note(t, mtof(30), 1.2, { type: "sawtooth", detune: -22, vol: 0.09, lp: 220, lpTo: 900, a: 0.3, sus: 1, r: 0.05, sfx: 1 });
+      note(t, mtof(36), 1.2, { type: "sawtooth", detune: 27, vol: 0.06, lp: 300, lpTo: 600, a: 0.3, sus: 1, r: 0.05, sfx: 1 });
+      for (var j = 0; j < 10; j++) note(t + 0.05 + j * 0.11 + Math.random() * 0.04, rnd(200, 3200), 0.05, { type: "square", vol: 0.03, sus: 0.5, sfx: 1 });
+    },
+    // 👁 が開く音
+    eye: function (t) {
+      note(t, 110, 0.6, { slide: 55, vol: 0.14, sus: 0.5, r: 0.1, verb: 0.4, sfx: 1 });
+      bell(t, 60, 2, 0.05, { sfx: 1 });
+    },
+    // SECRET ZONE：ドン、ドン、ドドン！（文字が叩きつけられるのに合わせる）。Dm の音が1回ごとに上がる
+    zone: function (t) {
+      noise(t, 0.72, { f: 300, fTo: 8000, vol: 0.18, swell: true, sfx: 1 });
+      [[0.12, 50, 1], [0.42, 53, 1.1], [0.72, 57, 1.35]].forEach(function (x, k) {
+        var h = t + x[0];
+        kick(h, 1.2 * x[2], { sfx: 1, boom: k === 2 });
+        noise(h, 0.2 + k * 0.2, { f: 2400, vol: 0.12 + k * 0.03, sfx: 1, verb: 0.4 });
+        [0, 7, 12].forEach(function (d) { note(h, mtof(x[1] + d), 0.22 + k * 0.2, { type: "sawtooth", vol: 0.035, lp: 3000, lpTo: 900, sus: 0.4, dec: 0.15, r: 0.08, sfx: 1, verb: 0.2 }); });
+      });
+      note(t + 0.74, 700, 0.55, { type: "sawtooth", slide: 3200, slideT: 0.35, vol: 0.05, lp: 6000, vib: [18, 40, 0], r: 0.15, echo: 0.3, sfx: 1 });
+      [86, 89, 93, 98].forEach(function (m, j) { bell(t + 0.78 + j * 0.06, m, 1, 0.04, { sfx: 1 }); });
+    },
     // カットイン：シュッ → ドン → キュイン（段階が上がるほど派手）
     // a は段階の番号（tier）か { tier, k }。k はカットインの速さの倍率（小さいほど速い）で、ドンの位置を絵に合わせる
     cutin: function (t, a) {
@@ -1468,6 +1667,14 @@ var Sound = (function () {
     init: init,
     mood: function (name) { if (name !== mood || !cur) startMood(name); },
     sfx: function (name, arg) { if (ctx && ctx.state === "running" && cur) SFX[name](ctx.currentTime + 0.02, arg); },
+    // スキップしたとき：鳴っている途中と予約済みの効果音をすっと消す（サイレンなどが次の場面に残らないように）
+    cutSfx: function () {
+      if (!ctx) return;
+      var old = sfxBus;
+      old.gain.setTargetAtTime(0, ctx.currentTime, 0.04);
+      setTimeout(function () { old.disconnect(); }, 400);
+      sfxBus = ctx.createGain(); sfxBus.gain.value = 0.75; sfxBus.connect(master);
+    },
     muted: function () { return muted; },
     volume: function () { return vol; },
     setVolume: function (v) {
@@ -1505,8 +1712,7 @@ var Sound = (function () {
 })();
 
 // 最初のクリックかキー入力で音が鳴り始める（ブラウザの決まりで、それまでは鳴らせない）
-document.addEventListener("pointerdown", function () { Sound.init(); });
-document.addEventListener("keydown", function () { Sound.init(); });
+["pointerdown", "touchend", "click", "keydown"].forEach(function (ev) { document.addEventListener(ev, function () { Sound.init(); }); });   // スマホの Safari は指を離したときか click からしか音を始められない
 document.addEventListener("visibilitychange", function () { Sound.visible(!document.hidden); });
 function paintMute() {
   var m = Sound.muted(), v = Sound.volume();
@@ -1515,7 +1721,7 @@ function paintMute() {
   $("mute").title = m ? "音を出す" : "音を消す";
 }
 // スマホ（639px まで）では、1回目に押すと音量スライダーが開き、開いている間に押すと消音。外を触ると閉じる
-var NARROW = window.matchMedia("(max-width: 639px)");
+var NARROW = window.matchMedia("(max-width: 639px), (max-height: 480px)");
 $("mute").addEventListener("click", function () {
   Sound.init();
   if (NARROW.matches && !$("soundBox").classList.contains("open")) { $("soundBox").classList.add("open"); return; }
@@ -1534,12 +1740,33 @@ $("vol").addEventListener("input", function () {
 paintMute();
 
 // ── 解放したシークレット（このブラウザだけに保存）──
-function loadUnlocked() { try { return JSON.parse(localStorage.getItem("buzz_unlocked") || "[]"); } catch (e) { return []; } }
+// 読むときに形を確かめる（保存データが壊れていても、画面が止まらないように）
+function loadUnlocked() {
+  try {
+    var u = JSON.parse(localStorage.getItem("buzz_unlocked") || "[]");
+    return Array.isArray(u) ? u.filter(function (i) { return Number.isInteger(i) && LV[i]; }) : [];
+  } catch (e) { return []; }
+}
 function saveUnlocked(list) { try { localStorage.setItem("buzz_unlocked", JSON.stringify(list)); } catch (e) {} }
-function loadStats() { try { return JSON.parse(localStorage.getItem("buzz_stats") || '{"posts":0,"best":null}'); } catch (e) { return { posts: 0, best: null }; } }
+function loadStats() {
+  try {
+    var s = JSON.parse(localStorage.getItem("buzz_stats") || "null");
+    if (s && Number.isFinite(s.posts)) return { posts: Math.max(0, Math.floor(s.posts)), best: Number.isFinite(s.best) ? s.best : null };
+  } catch (e) {}
+  return { posts: 0, best: null };
+}
 function saveStats(v) { try { localStorage.setItem("buzz_stats", JSON.stringify(v)); } catch (e) {} }
-function loadBest() { try { return Number(localStorage.getItem("buzz_best") || -1); } catch (e) { return -1; } }
+// 最高到達。エンドコンテンツは数えない（前の版で 14〜16 が入っていても、バズマップの最後の段階として読む）
+function loadBest() {
+  try {
+    var b = Number(localStorage.getItem("buzz_best") || -1);
+    return Number.isInteger(b) && b >= -1 ? Math.min(b, MAIN - 1) : -1;
+  } catch (e) { return -1; }
+}
 function saveBest(v) { try { localStorage.setItem("buzz_best", String(v)); } catch (e) {} }
+// 結果として実際に家庭内に着いたことがあるか（真・家庭内の条件。上昇の途中で通っただけでは数えない）
+function loadHome() { try { return localStorage.getItem("buzz_home") === "1" || loadBest() === 0; } catch (e) { return false; } }
+function saveHome() { try { localStorage.setItem("buzz_home", "1"); } catch (e) {} }
 
 // 宇宙から上は、実際に届くまで「霧」の中（名前も絵文字も出さない）
 function isVisible(i, unlocked) { return !LV[i].h || unlocked.indexOf(i) >= 0; }
@@ -1565,7 +1792,19 @@ function renderMyStats() {
 }
 
 // 自己ベストの投稿（結果まるごと。このブラウザだけに保存）
-function loadBestPost() { try { return JSON.parse(localStorage.getItem("buzz_best_post") || "null"); } catch (e) { return null; } }
+function loadBestPost() {
+  try {
+    var d = JSON.parse(localStorage.getItem("buzz_best_post") || "null");
+    if (!d || typeof d.text !== "string") return null;
+    if (!LV[d.levelIndex]) d.levelIndex = levelOf(d);
+    var lv = LV[d.levelIndex];
+    d.level = d.level || lv.name; d.emoji = d.emoji || lv.emoji; d.tone = d.tone || "cold"; d.comment = d.comment || "";
+    d.likes = Number(d.likes) || 0; d.retweets = Number(d.retweets) || 0; d.score = Number(d.score) || 0;
+    if (!Array.isArray(d.replies)) d.replies = [];
+    d.axes = d.axes || { empathy: 0, surprise: 0, fun: 0, spread: 0 };
+    return d;
+  } catch (e) { return null; }
+}
 function saveBestPost(d) { try { localStorage.setItem("buzz_best_post", JSON.stringify(d)); } catch (e) {} }
 function renderBestPost() {
   var bp = loadBestPost();
@@ -1576,7 +1815,16 @@ function renderBestPost() {
   var m = document.createElement("div"); m.className = "bp-meta";
   m.append(obf(document.createElement("span"), bp.emoji + " " + lvLabel(bp) + " ・ "), scoreSpan(bp, "点"), " ・ ❤️ " + compactNum(bp.likes));
   var b = document.createElement("button"); b.className = "btn sub wide"; b.textContent = "この結果をもう一度見る";
-  b.addEventListener("click", function () { Sound.init(); Sound.mood(Sound.forLevel(bp.levelIndex)); showResult(bp); });
+  // 演出から見せる（投稿はしないので、記録は変わらない）
+  b.addEventListener("click", async function () {
+    if (replaying) return; replaying = true;
+    Sound.init(); preloadGods();
+    skipped = false;
+    await playCinema(bp, loadUnlocked());
+    replaying = false;
+    renderMap();
+    await showResult(bp);
+  });
   el.append(h, t, m, b);
 }
 
@@ -1599,14 +1847,59 @@ function renderMap(nowIndex) {
     }
     var open = !lv.s || unlocked.indexOf(i) >= 0;
     var li = document.createElement("li");
-    li.className = (lv.s ? "secret " : "") + (open ? "" : "locked ") + (i <= best ? "reached " : "") + (i === best ? "best " : "") + (i === nowIndex ? "now" : "");
+    li.className = (lv.s ? "secret " : "") + (open ? "" : "locked ") + (open && i <= best ? "reached " : "") + (i === best ? "best " : "") + (i === nowIndex ? "now" : "");
+    if (i === best || i === nowIndex) li.setAttribute("aria-current", "true");
     var e = document.createElement("span"); e.className = "me"; e.textContent = open ? lv.emoji : "🔒";
     var n = document.createElement("span"); obf(n, open ? lv.name : "？？？");
-    li.append(e, n); map.append(li);
+    // 届いたことのある段階は、押すと演出をもう一度見られる
+    if (lv.s ? open : i <= best) {
+      var go = document.createElement("button"); go.dataset.lv = i; go.setAttribute("aria-label", lv.name + "の演出を見る");
+      var mark = document.createElement("span"); mark.className = "go"; mark.textContent = "▶";
+      go.append(e, n, mark); li.classList.add("play"); li.append(go);
+    } else li.append(e, n);
+    map.append(li);
     var s = document.createElement("span"); s.textContent = open ? lv.emoji : "❔"; strip.append(s);
   });
   $("unlockCount").textContent = "踏破 " + reachedCount() + " / " + MAIN;
+  // スマホで開くバズマップにも同じものを出す（中身は決まった文字だけ）
+  $("map2").innerHTML = map.innerHTML;
+  $("unlockCount2").textContent = "踏破 " + reachedCount() + " / " + MAIN;
 }
+function onMapClick(e) {
+  var b = e.target.closest("button[data-lv]");
+  if (!b) return;
+  $("mapModal").classList.remove("show");
+  replayStage(Number(b.dataset.lv));
+}
+$("map").addEventListener("click", onMapClick);
+$("map2").addEventListener("click", onMapClick);
+$("mapstrip").addEventListener("click", function () { $("mapModal").classList.add("show"); });
+$("closeMap").addEventListener("click", function () { $("mapModal").classList.remove("show"); });
+$("mapModal").addEventListener("click", function (e) { if (e.target.id === "mapModal") $("mapModal").classList.remove("show"); });
+
+// ── 全画面の場面・ダイアログを開いている間は、後ろの画面を操作できないようにする ──
+// inert：キーボードの Tab も届かなくなる（演出の裏で投稿が始まったりしない）。開いたらスキップや閉じるボタンに移り、閉じたら元のボタンに戻る
+var layoutEl = document.querySelector(".layout"), overlayBack = null, overlayTimer;
+function syncOverlay() {
+  clearTimeout(overlayTimer);
+  var open = document.querySelector(".overlay.show");
+  if (open && !layoutEl.inert) overlayBack = document.activeElement;
+  layoutEl.inert = !!open; $("admin").inert = !!open;
+  if (open) {
+    var t = open.querySelector("#skip, #resX, .close");
+    if (t && !open.contains(document.activeElement)) t.focus({ preventScroll: true });
+    return;
+  }
+  var back = overlayBack, now = document.activeElement; overlayBack = null;
+  if (now && now !== document.body && !now.closest(".overlay")) return;   // ほかの場所を選んでいるときは動かさない
+  // 入力欄には戻さない（スマホでキーボードが勝手に開くので）。戻す先がなければポストのボタンへ
+  if (!back || !back.isConnected || back.disabled || back === document.body || back === $("text")) back = $("post");
+  if (!back.disabled) back.focus({ preventScroll: true });
+}
+// 場面から結果へ切り替わるとき、一瞬だけ何も開いていない状態になるので、少し待ってから見る
+document.querySelectorAll(".overlay").forEach(function (o) {
+  new MutationObserver(function () { clearTimeout(overlayTimer); overlayTimer = setTimeout(syncOverlay, 0); }).observe(o, { attributes: true, attributeFilter: ["class"] });
+});
 
 // ── 入力欄 ──
 var textEl = $("text"), postBtn = $("post"), avatar = $("avatar"), typingTimer;
@@ -1674,49 +1967,46 @@ var SCENES = [
     '<div class="ticker"><span>【県内】あるツイートが県民の間で話題に　専門家「よくわからない」　県知事もコメントを検討中</span></div></div>' },
   { cls: "s-nation", sub: "全国ニュースの速報が流れた。", html:
     '<div class="sokuho">速 報</div><span class="e japan">🗾</span><div class="ripple"></div><div class="ripple" style="animation-delay:.5s"></div>' +
-    '<div class="ripple" style="animation-delay:1s"></div><span class="e heli">🚁</span><div class="flash"></div>' },
+    '<div class="ripple" style="animation-delay:1s"></div><span class="e heli">🚁</span>' },
   { cls: "s-asia", sub: "国境を越えて、アジア中に広がった。", html: function () {
-    var h = '<span class="e globe">🌏</span>';
-    // 国旗の絵文字は Windows で表示されないので、アジアっぽいモチーフにしている
-    var flags = ["🏮", "🐼", "🛕", "🍜", "🥟", "🐘", "🧋", "🎎", "🐉", "🌶️"];
-    flags.forEach(function (f, i) {
-      var a = i / flags.length * Math.PI * 2, r = 36;
-      h += '<span class="e flag" style="left:' + (50 + Math.cos(a) * r) + '%;top:' + (45 + Math.sin(a) * r * .8) + '%;--fx:' + (Math.cos(a) * 60) + 'vw;--fy:' + (Math.sin(a) * 60) + 'vh;animation-delay:' + (i * .08) + 's">' + f + '</span>';
-    });
-    ["대박!", "太厉害了!", "Viral!", "สุดยอด!", "Hay quá!", "बहुत बढ़िया!"].forEach(function (w, i) {
-      h += '<span class="e word" style="left:' + rnd(8, 70) + '%;top:' + rnd(10, 70) + '%;animation-delay:' + (i * .3) + 's">' + w + '</span>';
-    });
+    // 世界の言葉が、拍に合わせて1つずつ増えていく（SHOW の pop の音と同じ間隔）
+    function row(words, from) {
+      return '<div class="w-row">' + words.map(function (w, i) { return '<span class="word" style="animation-delay:' + (.2 + (from + i) * .28).toFixed(2) + 's">' + w + '</span>'; }).join("") + '</div>';
+    }
+    var h = row(["대박!", "太厉害了!", "Hay quá!"], 0) + '<span class="e globe">🌏</span>' + row(["Viral!", "สุดยอด!", "बहुत बढ़िया!"], 3);
     return h; } },
   { cls: "s-earth", sub: "全世界トレンド1位。地球がざわついている。", html: function () {
     var h = '<span class="e planet">🌍</span><div class="orbit"><span style="left:min(30vw,260px)">🛰️</span><span style="left:max(-36vw,-300px);top:-20px">✈️</span></div>';
-    for (var i = 0; i < 10; i++) h += '<div class="ping" style="left:' + rnd(38, 62) + '%;top:' + rnd(30, 60) + '%;animation-delay:' + rnd(0, 1) + 's"></div>';
+    for (var i = 0; i < 6; i++) h += '<div class="ping" style="left:' + rnd(38, 62) + '%;top:' + rnd(30, 60) + '%;animation-delay:' + rnd(0, 1) + 's"></div>';
     return h; } },
   { cls: "s-solar", sub: "太陽系の惑星たちが、全員いいねした。", html: function () {
     var h = '<span class="e sun">☀️</span>';
     var p = [["#a8a29e", 18], ["#fbbf24", 26], ["#3b82f6", 34], ["#ef4444", 42], ["#f59e0b", 52], ["🪐", 62]];
     p.forEach(function (x, i) {
       var size = "min(" + x[1] * 1.6 + "vw," + x[1] * 13 + "px)";
-      var inner = x[0].charAt(0) === "#" ? '<i style="background:' + x[0] + '"></i>' : '<i style="font-size:28px;width:auto;top:-18px">' + x[0] + '</i>';
-      h += '<div class="ring" style="width:' + size + ';height:' + size + ';translate:-50% -50%;animation-duration:' + (2 + i * 1.2) + 's">' + inner + '</div>';
+      var inner = x[0].charAt(0) === "#" ? '<i style="background:' + x[0] + '"></i>' : '<i style="font-size:38px;width:auto;top:-24px">' + x[0] + '</i>';
+      h += '<div class="ring" style="width:' + size + ';height:' + size + ';translate:-50% -50%;--k:' + i + ';--sd:' + (2 + i * 1.2) + 's">' + inner + '</div>';
     });
     return h; } },
-  { cls: "s-galaxy", sub: "天の川が、あなたのツイートで満たされた。", html: '<div class="spiral"></div><div class="core"></div>' },
+  { cls: "s-galaxy", sub: "天の川が、あなたのツイートで満たされた。", html: '<div class="galwrap"><div class="spiral"></div><div class="core"></div></div>' },
   { cls: "s-cluster", sub: "銀河たちが、あなたのツイートに引き寄せられてきた。", html: function () {
-    var h = "";
-    for (var i = 0; i < 14; i++) h += '<div class="mini" style="left:' + rnd(0, 88) + '%;top:' + rnd(0, 75) + '%;width:' + rnd(60, 200) + 'px;animation-delay:' + rnd(0, 1.2) + 's"></div>';
+    var h = '<div class="mini main"></div>';
+    // 引いていくにつれて、外側の銀河が見えてくる
+    for (var i = 0; i < 16; i++) h += '<div class="mini" style="left:' + rnd(-6, 84) + '%;top:' + rnd(-2, 72) + '%;width:' + rnd(70, 170) + 'px;animation-delay:' + rnd(.8, 1.5).toFixed(2) + 's"></div>';
     return h; } },
   { cls: "s-universe", sub: "ビッグバン以来の大事件。宇宙が、加速した。", html: function () {
-    var h = '<div class="bang"></div>';
-    for (var i = 0; i < 70; i++) h += '<div class="streak" style="rotate:' + rnd(0, 360) + 'deg;animation-delay:' + rnd(0, .8) + 's"></div>';
+    var h = '<div class="bdot"></div><div class="bang"></div>';
+    for (var i = 0; i < 40; i++) h += '<div class="streak" style="rotate:' + rnd(0, 360) + 'deg;animation-delay:' + rnd(1, 1.8).toFixed(2) + 's"></div>';
     return h; } },
   { cls: "s-4d", sub: "時間がゆがんだ。過去と未来から、いいねが届く。", html: function () {
     var h = "";
-    [40, 26, 14].forEach(function (s, i) { h += '<div class="cube" style="width:' + s + 'vmin;height:' + s + 'vmin;animation-duration:' + (3 + i) + 's"></div>'; });
+    h += '<span class="e bigclock">⏰</span>';
+    [50, 32, 16].forEach(function (s, i) { h += '<div class="cube" style="width:' + s + 'vmin;height:' + s + 'vmin;animation-duration:' + (3 + i) + 's"></div>'; });
     ["⏰", "⌛", "🦖", "⏱️", "🕰️", "🚀"].forEach(function (c) { h += '<span class="e clock" style="left:' + rnd(5, 85) + '%;top:' + rnd(8, 70) + '%">' + c + '</span>'; });
     return h; } },
   { cls: "s-kami", sub: "八百万の神々がひれ伏した。今日から、あなたが神じゃ。", html: function () {
-    var h = '<div class="krays"></div><span class="e torii">⛩️</span>';
-    [[-8, 66, 0], [62, 62, 1.5], [16, 76, 3], [76, 78, .8], [38, 82, 2.2]].forEach(function (c) {
+    var h = '<div class="krays"></div><span class="e torii">⛩️</span><div class="k-door l"></div><div class="k-door r"></div>';
+    [[-14, 64, 0], [74, 60, 1.5], [24, 66, 3], [-22, 80, .8], [92, 78, 2.2]].forEach(function (c) {
       h += '<span class="cloud" style="left:' + c[0] + '%;top:' + c[1] + '%;animation-delay:-' + c[2] + 's">☁️</span>';
     });
     h += '<img class="kneel" src="/gods/praise.png" alt=""><div class="bubble haha">ははぁーっ！！</div>';
@@ -1761,7 +2051,7 @@ var SCENES = [
   // 真・家庭内：最初の居間に夕日。寝転んでいた妹が起き上がって「……おもろ」。家族がはしゃぐ
   { cls: "s-truehome", sub: "すべてを越えて、家に帰ってきた。妹が、笑った。", html: function () {
     var h = '<div class="th-window"></div><div class="floor"></div>' +
-      '<span class="e" style="left:8%;bottom:28%;font-size:min(13vw,110px)">📺</span><span class="e" style="left:70%;bottom:28%;font-size:min(12vw,100px)">🛋️</span>' +
+      '<span class="e" style="left:8%;bottom:max(28%,var(--caph));font-size:min(13vw,17vh,110px)">📺</span><span class="e" style="left:70%;bottom:max(28%,var(--caph));font-size:min(12vw,16vh,100px)">🛋️</span>' +
       '<span class="e th-sis">👧</span><div class="bubble th-omoro">……おもろ</div>' +
       '<span class="e th-fam" style="left:22%">👩</span><span class="e th-fam" style="left:34%;animation-delay:.15s">👨</span>' +
       '<span class="e th-fam" style="left:82%;animation-delay:.3s">👵</span><span class="e th-dog">🐕</span>';
@@ -1775,15 +2065,19 @@ var TIERS = [
   { cls: "t3", stamp: "超激アツ!!!", color: "#eab308" }, { cls: "t4", stamp: "確定!?", color: "#db2777" }, { cls: "t5", stamp: "神確定", color: "#f59e0b" },
   { cls: "t6", stamp: "∃RR0R", color: "#22c55e" }
 ];   // エンドコンテンツはカットインを使わない（endRoute の道のりで見せる）
-// 上昇の段取り。シークレットは「前に届いたことがある段」と「今回の到達段」だけ見せる（まだ見ていない段のネタバレを防ぐ）
+// 上昇の段取り。途中のシークレットも1段ずつカットインで見せる。まだ届いていない段は名前を伏せて「？」にする（hide。解放もしない）
 // 通過するシークレットはだんだん速く、最後の1段の前で「溜め」て、最後はスローで大きく見せる
 var TAME_MS = 1100;
 function climbPlan(idx, seen) {
-  var steps = [], pass = [];
+  var steps = [], pass = [], top = Math.min(idx, EARTH);
   for (var i = 0; i <= idx; i++) {
-    if (i < 7) steps.push({ i: i, ms: idx >= 7 ? 420 - i * 30 : 380 });   // シークレットまで行くときは、加速しながら突入する
+    if (i <= top) {
+      // ルーレットのように、終わりに近づくほどゆっくりになる（1秒に3段より速くしない。背景の色が変わるので）
+      var left = top - i;
+      steps.push({ i: i, ms: left >= 3 ? 340 : left === 2 ? 400 : left === 1 ? 520 : 720, stop: left === 0 });
+    }
     else if (i === idx) steps.push({ i: i, ms: i >= GLITCH ? 3000 : i >= KAMI ? 2800 : 2400, k: 1.5, final: true });
-    else if (seen.indexOf(i) >= 0) { var p = { i: i }; steps.push(p); pass.push(p); }
+    else { var p = { i: i, hide: seen.indexOf(i) < 0 }; steps.push(p); pass.push(p); }
   }
   pass.forEach(function (p, j) {
     p.ms = Math.round(1250 - 550 * (pass.length > 1 ? j / (pass.length - 1) : 0));
@@ -1793,13 +2087,14 @@ function climbPlan(idx, seen) {
 }
 function cutIn(stage, p, isNew) {
   var i = p.i, tier = i - 7;
-  var c = document.createElement("div"); c.className = "cutin " + TIERS[tier].cls + (p.final ? " final" : "");
+  var c = document.createElement("div"); c.className = "cutin " + TIERS[tier].cls + (p.final ? " final" : "") + (p.hide ? " ask q" + tier : "");
   c.style.setProperty("--d", p.ms + "ms"); c.style.setProperty("--k", p.k);
   c.innerHTML = '<div class="ci-lines"></div><div class="ci-band"><img class="ci-god" alt=""><div class="ci-txt"><div class="ci-label"></div><div class="ci-name"></div></div></div>' +
     '<div class="ci-stamp"></div>' + (p.final ? '<div class="ci-ring"></div>' : "") + '<div class="ci-flash"></div>';
-  c.querySelector(".ci-god").src = "/gods/" + (i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
-  c.querySelector(".ci-label").textContent = i <= 9 ? "SECRET " + (i - 6) : "ULTRA SECRET";
-  var nm = c.querySelector(".ci-name"); nm.style.setProperty("--n", Array.from(LV[i].name).length); obf(nm, LV[i].name);
+  c.querySelector(".ci-god").src = "/gods/" + (p.hide ? "praise" : i === GLITCH ? "alien" : i === KAMI ? "kami" : "praise") + ".png";
+  c.querySelector(".ci-label").textContent = p.hide ? "SECRET ？" : i <= 9 ? "SECRET " + (i - 6) : "ULTRA SECRET";
+  var nm = c.querySelector(".ci-name"), shown = p.hide ? "？" : LV[i].name;
+  nm.style.setProperty("--n", Array.from(shown).length); obf(nm, shown);
   obf(c.querySelector(".ci-stamp"), TIERS[tier].stamp);
   if (isNew) { var nb = document.createElement("div"); nb.className = "ci-new"; nb.textContent = "NEW!! 初到達"; c.append(nb); }
   stage.append(c);
@@ -1807,8 +2102,71 @@ function cutIn(stage, p, isNew) {
   return c;
 }
 
-var skipped = false;
-async function wait(ms) { var t = 0; while (t < ms && !skipped) { await sleep(50); t += 50; } }
+// SECRET ZONE 突入：SECRET → ZONE → 突入！ を拍に合わせて叩きつける（突入！で衝撃波）
+var ZONE_MS = 1500;
+function secretZone(stage) {
+  var w = document.createElement("div"); w.className = "warning";
+  w.innerHTML = '<div class="z-beam"></div><div class="z-cam"><div class="z-word">SECRET</div><div class="z-word b">ZONE</div><div class="z-stamp">突入！</div></div><div class="ci-ring"></div>';
+  stage.append(w);
+  Sound.mood("secret"); Sound.sfx("siren"); Sound.sfx("zone");
+  return w;
+}
+function tameIn(stage, i) {
+  var tm = document.createElement("div"); tm.className = "tame"; tm.style.setProperty("--tc", TIERS[i - 7].color);
+  tm.innerHTML = '<div class="tame-txt">！？</div>'; stage.append(tm);
+  Sound.mood("tame");
+  return tm;
+}
+// 最後の1段の前の溜め。∬… だけは、溜めの途中で様子がおかしくなる
+async function windUp(stage, i) {
+  var tm = tameIn(stage, i === GLITCH ? KAMI : i);   // ∬… も最初は、ふつうの溜めのふりをする
+  if (i === GLITCH) await anomaly(tm); else await wait(TAME_MS);
+  return tm;
+}
+// ∬… の前ぶれ：心臓の音が止まる → 「！？」が文字化けして警告が出る → 真っ暗で無音 → 👁 が開く → 姿を見せる
+// 明るさは点滅させず、音を消すこと・文字化け・ガクッとした揺れで「何かおかしい」と分からせる
+var ANOMALY_MS = 3150;
+async function anomaly(tm) {
+  var txt = tm.querySelector(".tame-txt"), log = document.createElement("div"); log.className = "a-log";
+  function say(line, cls) { var d = obf(document.createElement("div"), line); if (cls) d.className = cls; log.append(d); }
+  await wait(800);
+  if (!skipped) {
+    Sound.mood("hush");   // 音がふっと消えて、「！？」が固まる
+    tm.classList.add("stuck");
+    await wait(400);
+  }
+  if (!skipped) {
+    tm.classList.add("bug"); tm.append(log);
+    tm.insertAdjacentHTML("afterbegin", '<div class="a-slip"></div><div class="a-slip b"></div><div class="a-slip c"></div>');
+    obf($("skip"), "∃∃∃ ▶▶");
+    Sound.sfx("anomaly");
+    obf(txt, "！∃"); say("⚠ バズ神からの応答がありません");
+    await wait(300);
+  }
+  if (!skipped) {
+    obf(txt, "∬∃"); say("⚠ バズ力を測定できません：◎＄￡");
+    await wait(300);
+  }
+  if (!skipped) {
+    obf(txt, "∃∃∃"); say("⚠ 何かが、こちらを見ています", "a-last");
+    await wait(600);
+  }
+  if (!skipped) {
+    tm.classList.add("black"); tm.innerHTML = "";
+    await wait(250);
+  }
+  if (!skipped) {
+    tm.innerHTML = '<div class="a-eye">👁️</div>';
+    Sound.sfx("eye");
+    await wait(500);
+  }
+  $("skip").textContent = "スキップ ▶▶";
+}
+
+var skipped = false, replaying = false;   // replaying：もう一度見ている途中（ボタンの押し直しで二重に始めない）
+var climbTimers = [];   // 上昇の途中で予約した音や通知（シーンが始まったら取り消す）
+// 実際の時刻で待つ（回数で数えると少しずつ遅れて、シーンの中の at() とずれる）
+async function wait(ms) { var end = performance.now() + ms; while (performance.now() < end && !skipped) await sleep(Math.min(50, end - performance.now())); }
 
 // 上昇の1段（背景・大きな絵文字・名前・バズマップ・音）
 function climbTo(climb, i, emoji, name) {
@@ -1823,34 +2181,40 @@ function likedBy(i) { toast("❤️ " + pickOne(LIKERS[i]) + "さんがいいね
 // ふつうの上昇：家庭内から到達段階まで駆け上がる（シークレットは SECRET ZONE に入って、1段ごとにカットイン）
 async function climbUp(d, seen, stage, climb) {
   var idx = d.levelIndex;
-  var plan = climbPlan(idx, seen), total = idx >= 7 ? 1300 + TAME_MS : 0;
-  plan.forEach(function (p) { total += p.ms; });
-  var big = d.likes >= 1e16;
-  countUp($("hlike"), d.likes, total + 300, big);
-  countUp($("hrt"), d.retweets, total + 300, big);
+  var plan = climbPlan(idx, seen);
   var prev = null;   // 1つ前のカットイン（次のカットインと少し重ねて、つなぎ目を見せない）
   for (var s = 0; s < plan.length && !skipped; s++) {
     var p = plan[s], i = p.i;
     if (i >= 7 && plan[s - 1].i < 7) {
-      var w = document.createElement("div"); w.className = "warning"; w.textContent = "⚠ SECRET ZONE 突入 ⚠";
-      stage.append(w); Sound.mood("secret"); Sound.sfx("siren");
-      await wait(1300); w.remove();
+      $("toasts").innerHTML = "";
+      var w = secretZone(stage);
+      // SECRET ZONE がふわっと重なったあとで、下の地球を片付ける（次の場面が入るときに青い色が見えないように）
+      setTimeout(function () { climb.classList.remove("stop", "dim"); climb.innerHTML = ""; climb.style.background = "#000"; }, 320);
+      await wait(ZONE_MS);
+      setTimeout(w.remove.bind(w), 340);   // 次の場面が上に重なってから消す
       if (skipped) break;
     }
     var tm = null;
     if (p.final && i >= 7) {
       // 溜め：今のカットインが止まって暗くなり、心臓の音だけになる
       if (prev) prev.classList.add("freeze");
-      tm = document.createElement("div"); tm.className = "tame"; tm.style.setProperty("--tc", TIERS[i - 7].color);
-      tm.innerHTML = '<div class="tame-txt">！？</div>'; stage.append(tm);
-      Sound.mood("tame");
-      await wait(TAME_MS);
+      tm = await windUp(stage, i);
       if (skipped) break;
-      Sound.mood("secret");
+      Sound.mood(i === GLITCH ? "glitch" : "secret");
     }
-    climbTo(climb, i); likedBy(i);
-    if (i < 7) { await wait(p.ms); continue; }
-    var ci = cutIn(stage, p, seen.indexOf(i) < 0);
+    if (i < 7) climbTo(climb, i); else Sound.sfx("blip", i);   // シークレットの段はカットインが全面を覆うので、下の絵は変えない
+    if (i < idx) rollHud(Math.min(CLIMB_LIKES[i], d.likes * 0.7), p.ms);   // 最後の数字は、シーンで見せるまで取っておく
+    if (i < 7) {
+      if (p.ms >= 520) likedBy(i);
+      if (p.stop) {   // 着地：音がぴたりと止まる。ここで終わりか、まだ続くかは、次の開示まで分からない
+        Sound.mood("hush"); Sound.sfx("stop");
+        climb.classList.add("stop"); climb.style.setProperty("--hold", p.ms + "ms");
+        if (idx > EARTH) climbTimers.push(setTimeout(function () { if (!skipped) { climb.classList.add("dim"); Sound.sfx("suck", 0.34); } }, p.ms - 340));   // 突入の直前に、すっと暗くなって音がふくらむ
+      }
+      await wait(p.ms);
+      continue;
+    }
+    var ci = cutIn(stage, p, !p.hide && seen.indexOf(i) < 0);
     if (prev) setTimeout(prev.remove.bind(prev), 300);
     if (tm) setTimeout(tm.remove.bind(tm), 300);
     prev = ci;
@@ -1880,13 +2244,8 @@ async function endRoute(d, stage, climb) {
     return;
   }
   var up = [400, 380, 370, 360, 350, 350, 520];   // 地球まで（1秒に3段より速くしない）
-  if (idx === GENESIS) {
-    var gnMs = 0; up.forEach(function (ms) { gnMs += ms; });
-    countUp($("hlike"), d.likes, gnMs + 4700, true);
-    countUp($("hrt"), d.retweets, gnMs + 4700, true);
-  }
   // 真・家庭内は、世界のいいねは数えない（最後に家族の3つだけ）
-  for (i = 0; i <= EARTH && !skipped; i++) { climbTo(climb, i); if (idx === GENESIS) likedBy(i); await wait(up[i]); }
+  for (i = 0; i <= EARTH && !skipped; i++) { climbTo(climb, i); await wait(up[i]); }
   if (skipped) return;
   if (idx === GENESIS) {
     climb.classList.add("collapse"); Sound.mood("tame");
@@ -1905,52 +2264,201 @@ async function endRoute(d, stage, climb) {
   for (s = 0; s < down.length && !skipped; s++) { climbTo(climb, EARTH - 1 - s); await wait(down[s]); }
   if (skipped) return;
   climbTo(climb, TRUEHOME, "🏡", "ただいま");
-  countUp($("hlike"), d.likes, 1300);
   [1, 2, 0].forEach(function (k, j) {   // 母・父、最後に妹
-    setTimeout(function () { toast("❤️ " + LIKERS[TRUEHOME][k] + "がいいねしました"); }, j * 450);
+    climbTimers.push(setTimeout(function () { toast("❤️ " + LIKERS[TRUEHOME][k] + "がいいねしました"); }, j * 450));
   });
   await wait(2000);
 }
 
-// seen：今回の投稿より前に届いたことのあるシークレットの番号
+// ── 到達の見せ方 ──
+// 足して派手にしない。どの段階も「止まる → 間（止まった絵のまま無音）→ 1つのアイデアで開示 → 名前 → いいね数 → 一言」の順に、1つずつ見せる
+// 高い段階ほど、間が長く、開示が大きく、いいね数が「止まったと思ったら、また回る」回数が増える
+// gap：開示の前の間。mood：曲が始まる時刻。name・num・sub：名前・いいね数・一言が出る時刻。roll：数字の回る長さ。stops：数字がいったん止まる位置（0〜1）
+// on：シーンの後半の絵が現れる時刻。sfx：[時刻, 効果音, 引数]。badge：SECRET UNLOCKED の時刻。conf：紙吹雪の時刻。end：シーンを閉じる時刻（どれも ms）
+var SHOW = [
+  // 家庭内：何も起きない間 → フッ → そのあと悲しいトロンボーン。一言はオチのあとに出す
+  { gap: 260, name: 300, sfx: [[1400, "puff"]], sub: 1900, mood: 2100, num: 2900, roll: 450, end: 4700 },
+  // 村：音楽はなし。乾いた風の音だけ
+  { gap: 300, sfx: [[0, "wind", 2.6]], name: 500, sub: 1300, mood: 1900, num: 2500, roll: 550, end: 4700 },
+  // 町：ピンポンパンポーン♪
+  { gap: 320, sfx: [[150, "chime"]], name: 1200, sub: 1600, mood: 2100, num: 2500, roll: 650, end: 4800 },
+  // 県：テレビがつく
+  { gap: 360, sfx: [[0, "zap"]], name: 1000, sub: 1500, mood: 1800, num: 2300, roll: 750, end: 4900 },
+  // 全国：速報のチャイムと赤い帯が割り込む
+  { gap: 440, sfx: [[0, "alert"]], name: 1100, sub: 2800, mood: 1150, num: 1700, roll: 900, end: 5200 },
+  // アジア：世界の言葉が1つずつ増える
+  { gap: 500, sfx: [[200, "pop", 0], [480, "pop", 1], [760, "pop", 2], [1040, "pop", 3], [1320, "pop", 4], [1600, "pop", 5]], mood: 1900, name: 1950, num: 2450, roll: 1000, sub: 3700, end: 5500 },
+  // 地球：一気に引いて全体が見えた瞬間に、ファンファーレのドン
+  { gap: 600, mood: 1, on: 2070, conf: 2070, name: 2070, num: 2500, roll: 1300, stops: [.75], sub: 4300, end: 6600 },
+  // 太陽系：惑星が1つずつ「いいね」していき、最後に太陽が昇る
+  { gap: 300, sfx: [[200, "pop", 0], [480, "pop", 2], [760, "pop", 4], [1040, "pop", 5], [1320, "pop", 7], [1600, "pop", 9]], mood: 1900, name: 1950, num: 2400, roll: 1300, stops: [.7], sub: 4200, badge: 4600, end: 6800 },
+  // 銀河：高速で回る光が、1つの渦にまとまる
+  { gap: 320, sfx: [[0, "shimmer", 1.6]], mood: 1600, name: 1650, num: 2100, roll: 1400, stops: [.7], sub: 4000, badge: 4400, end: 6700 },
+  // 銀河団：目の前の銀河からぐっと引くと、まわりじゅう銀河だった
+  { gap: 320, sfx: [[0, "whoosh", 1.5]], mood: 1500, name: 1550, num: 2000, roll: 1500, stops: [.6, .85], sub: 4400, badge: 4800, end: 7100 },
+  // 宇宙：無音の中で点がふくらみ、ビッグバン
+  { gap: 500, sfx: [[0, "suck", 0.9], [900, "bang"]], mood: 900, on: 900, name: 1300, num: 1800, roll: 1600, stops: [.55, .85], sub: 4500, badge: 4900, end: 7300 },
+  // 四次元：名前も数字も逆回りして、時間が戻りきったところで本当の姿になる
+  { gap: 380, sfx: [[0, "rewind", 1.3]], mood: 1350, on: 1350, flip: true, name: 1, num: 1450, roll: 1700, stops: [.55, .85], sub: 4400, badge: 4800, end: 7300 },
+  // 神：天の扉がゆっくり開き、光があふれ、バズ神がひれ伏す
+  { gap: 450, sfx: [[0, "creak", 1.5]], mood: 1100, name: 1500, num: 2700, roll: 1900, stops: [.5, .75, .9], sub: 5300, badge: 5700, end: 8000 },
+  // ∬…：姿を見せるまでが前ぶれ（anomaly）。ここはそのまま
+  { gap: 0, mood: 1, name: 400, num: 1100, roll: 1800, stops: [.55, .85], sub: 3900, badge: 4300, end: 6600 },
+  // 無：静かなまま。いいね数の 0 が最後に出るだけ
+  { gap: 0, mood: 1, name: 1800, sub: 2600, num: 3700, roll: 80, badge: 1000, end: 5600 },
+  // 創世：芽が出てから、1無量大数
+  { gap: 0, mood: 1, name: 1500, num: 2500, roll: 1700, stops: [.6], sub: 4800, badge: 5100, end: 7200 },
+  // 真・家庭内：「……おもろ」のあとに、家族の 3
+  { gap: 0, mood: 1, name: 700, sub: 2300, num: 3100, roll: 450, badge: 1000, end: 5600 }
+];
+// 上昇中のいいね数の目安（最後の数字は、シーンで見せるまで取っておく）
+var CLIMB_LIKES = [3, 120, 2400, 25000, 250000, 1.5e6, 1e7, 6e7, 5e8, 5e9, 5e10, 1e12, 1e14, 4e15];
+var hudValue = 0, hudRun = 0;
+function rollHud(to, ms) {
+  var el = $("hlike"); if (!el) return;
+  var run = ++hudRun, a = Math.log(Math.max(hudValue, 1)), b = Math.log(Math.max(to, 1)), start = performance.now();
+  hudValue = to;
+  function tick(now) {
+    if (run !== hudRun || !el.isConnected) return;
+    var x = Math.min((now - start) / ms, 1);
+    el.textContent = likeNum(Math.exp(a + (b - a) * (1 - Math.pow(1 - x, 2))));
+    if (x < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+// いいね数を回す。stops の位置で、いったん止まったふりをしてから、また回る。done は回り終わったとき
+function rollLikes(el, from, to, o, done) {
+  if (to < 1) { el.textContent = "0"; if (done) done(); return; }   // 無：0 のまま（だれもいいねしない）
+  var big = to >= 1e16, stops = (o.stops || []).concat(1), a = Math.log(Math.max(from, 1)), b = Math.log(Math.max(to, 1));
+  var seg = 0, was = 0, each = o.ms / stops.length, start = performance.now(), wake = 0, lastTick = 0;
+  function tick(now) {
+    if (!el.isConnected) return;
+    if (now >= wake) {
+      var x = Math.min((now - start) / each, 1), f = was + (stops[seg] - was) * (1 - Math.pow(1 - x, 3));
+      el.textContent = likeNum(Math.exp(a + (b - a) * f), big);
+      if (!o.quiet && now - lastTick > 75) { lastTick = now; Sound.sfx("tick", f); }
+      if (x >= 1) {
+        was = stops[seg]; seg++;
+        if (seg >= stops.length) { el.textContent = likeNum(to, big); if (done) done(); return; }
+        wake = now + 460; start = wake;   // ここで止まったように見せる（音も止まる）
+        Sound.sfx("stop");
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+
 async function playCinema(d, seen) {
   var cinema = $("cinema"), stage = $("stage"), idx = d.levelIndex;
-  skipped = false;
+  // skipped はここでは戻さない（審査中に押したスキップを、上昇の分に効かせる）。戻すのは呼ぶ側
+  if (REDUCE.matches && !LV[idx].e) skipped = true;   // 動きを減らす設定の人には、上昇を見せずにシーンから
   cinema.classList.add("show");
   document.body.style.overflow = "hidden";
   Sound.mood("climb");
 
   // ① 上昇（いいね数とリツイート数は左上で数え上げる）
   var hud = document.createElement("div"); hud.className = "hud";
-  hud.innerHTML = '<span>🔁 <b id="hrt">0</b></span><span class="l">❤️ <b id="hlike">0</b></span>';
+  hud.innerHTML = '<span class="l">❤️ <b id="hlike">0</b></span>';
+  if (LV[idx].e) hud.style.display = "none";
+  hudValue = 0;
   var climb = document.createElement("div"); climb.className = "climb";
   stage.innerHTML = ""; stage.append(climb, hud);
   if (LV[idx].e) await endRoute(d, stage, climb); else await climbUp(d, seen, stage, climb);
 
   // ② 到達した段階のシーン
-  var sc = SCENES[idx];
+  await playScene(d);
+}
+async function playScene(d) {
+  var cinema = $("cinema"), stage = $("stage"), idx = d.levelIndex, sc = SCENES[idx], t = SHOW[idx];
+  climbTimers.forEach(clearTimeout); climbTimers = [];   // 上昇の途中で予約した音や通知を、シーンに持ち込まない
+  // 間：画面は消さない。止まった絵のまま、音だけを消して待つ（真っ暗にすると、故障に見える）
+  $("toasts").innerHTML = "";
+  if (t.gap) { Sound.mood("hush"); await wait(t.gap); }
   var scene = document.createElement("div"); scene.className = "scene " + sc.cls;
   scene.innerHTML = typeof sc.html === "function" ? sc.html() : sc.html;
   scene.querySelectorAll(".gtext").forEach(function (g) { obf(g, LV[GLITCH].name); });
   if (idx >= 7 && idx !== KAMI && idx !== VOID && idx !== TRUEHOME) stars(scene, 80);
-  if (d.secret) {
-    var u = document.createElement("div"); u.className = "unlock" + (LV[idx].e ? " end" : ""); u.textContent = LV[idx].e ? "🗺️ 地図にない場所" : "🔓 SECRET UNLOCKED"; scene.append(u);
-  }
   var cap = document.createElement("div"); cap.className = "caption";
-  var lvEl = document.createElement("div"); lvEl.className = "lv"; obf(lvEl, d.emoji + " " + lvLabel(d));
+  var label = d.emoji + " " + lvLabel(d);
+  var lvEl = document.createElement("div"); lvEl.className = "lv"; obf(lvEl, t.flip ? Array.from(label).reverse().join("") : label);
   var subEl = document.createElement("div"); subEl.className = "sub"; obf(subEl, sc.sub);
-  cap.append(lvEl, subEl); scene.append(cap);
-  stage.innerHTML = ""; stage.append(scene);
-  Sound.mood(Sound.forLevel(idx));
-  if (d.secret && idx !== VOID) Sound.sfx("unlock");
-  if (idx >= 4 && idx !== VOID) confetti(idx >= 7 ? 140 : 70);
+  cap.append(lvEl);
+  var lk = null, lb = null, big = d.likes >= 1e16;
+  if (d.likes != null) {
+    lk = document.createElement("div"); lk.className = "likes"; lb = document.createElement("b");
+    lk.style.setProperty("--len", String(likeNum(d.likes, big)).length + 2);
+    lk.append("❤️ ", lb); cap.append(lk);
+  }
+  cap.append(subEl); scene.append(cap);
+  scene.style.zIndex = 12;   // カットインより上に重ねる
+  stage.append(scene);
+  scene.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out" });
+  setTimeout(function () { Array.from(stage.children).forEach(function (c) { if (c !== scene) c.remove(); }); }, 340);
+  function at(ms, fn) { setTimeout(function () { if (scene.isConnected) fn(); }, ms); }
+  // 開示のあとに、順番に1つずつ
+  at(t.mood, function () { Sound.mood(Sound.forLevel(idx)); });
+  (t.sfx || []).forEach(function (x) { at(x[0], function () { Sound.sfx(x[1], x[2]); }); });
+  at(t.name, function () { lvEl.classList.add("on"); });
+  if (t.on) at(t.on, function () { scene.classList.add("on"); if (t.flip) { lvEl.classList.remove("on"); void lvEl.offsetWidth; obf(lvEl, label); lvEl.classList.add("on"); } });
+  if (t.conf) at(t.conf, function () { confetti(46); });
+  at(t.sub, function () { subEl.classList.add("on"); });
+  if (lk) {
+    var from = Math.min(hudValue, d.likes);
+    if (t.flip) {   // 四次元：数字が逆回りして、0 まで戻ってから本当の数を数える
+      lb.textContent = likeNum(d.likes, big); lk.classList.add("on");
+      at(60, function () { rollLikes(lb, d.likes, 1, { ms: t.on - 120, quiet: true }); });
+      from = 1;
+    }
+    at(t.num, function () {
+      lb.textContent = likeNum(from, big); lk.classList.add("on");
+      rollLikes(lb, from, d.likes, { ms: t.roll, stops: t.stops }, function () { lk.classList.add("done"); if (idx !== VOID) Sound.sfx("ding", idx > VOID ? 3 : idx); });
+    });
+  }
+  if (d.secret) at(t.badge, function () {
+    var u = document.createElement("div"); u.className = "unlock" + (LV[idx].e ? " end" : ""); u.textContent = LV[idx].e ? "🗺️ 地図にない場所" : "🔓 SECRET UNLOCKED"; 
+    // ∬… はシーン全体がカメラで大きくなり、札がスキップに重なるので、シーンの外に置く
+    if (idx === GLITCH) { u.style.zIndex = 13; stage.append(u); } else scene.append(u);
+    if (idx !== VOID) Sound.sfx("unlock");
+  });
   skipped = false;
-  await wait(idx >= 7 ? 4200 : 3600);
-
+  await wait(t.end);
   cinema.classList.remove("show");
   stage.innerHTML = "";
 }
-$("skip").addEventListener("click", function () { skipped = true; });
+// バズマップから：その段階のカットインとシーンだけをもう一度見る（投稿はしないので、記録は変わらない）
+// カットインがあるのは太陽系から上。地球までは上昇の1段とシーンを見せる
+async function replayStage(i) {
+  if (replaying) return; replaying = true;
+  Sound.init(); preloadGods();
+  var cinema = $("cinema"), stage = $("stage"), climb = document.createElement("div"); climb.className = "climb";
+  skipped = REDUCE.matches;
+  cinema.classList.add("show"); document.body.style.overflow = "hidden";
+  stage.innerHTML = ""; stage.append(climb);
+  if (i >= 7) {
+    var tm = await windUp(stage, i);
+    if (!skipped) {
+      var p = climbPlan(i, []).pop();
+      Sound.mood(i === GLITCH ? "glitch" : "secret");
+      climbTo(climb, i);
+      cutIn(stage, p, false);
+      setTimeout(tm.remove.bind(tm), 300);
+      await wait(p.ms);
+    }
+  } else {
+    Sound.mood("climb");
+    climbTo(climb, i);
+    await wait(900);
+  }
+  await playScene({ levelIndex: i, level: LV[i].name, emoji: LV[i].emoji, secret: !!LV[i].s });
+  document.body.style.overflow = "";
+  Sound.mood("idle");
+  renderMap();
+  replaying = false;
+}
+function skipNow() { if (!skipped) Sound.cutSfx(); skipped = true; }
+$("skip").addEventListener("click", skipNow);
 
 // ── 結果画面 ──
 var AXES = [["empathy", "共感"], ["surprise", "意外性"], ["fun", "ネタ度"], ["spread", "拡散力"]];
@@ -1978,12 +2486,12 @@ async function typeText(el, text, idx, run) {
   var chars = Array.from(text), pitch = idx >= EARTH ? 81 : idx >= 3 ? 72 : 67;
   typeSkip = false;
   el.textContent = ""; el.classList.add("typing");
-  await sleep(450);
-  for (var i = 0; i < chars.length && run === resultRun && !typeSkip; i++) {
+  await sleep(300);
+  for (var i = 0; i < chars.length && run === resultRun && !typeSkip && !REDUCE.matches; i++) {
     var shown = chars.slice(0, i + 1).join(""), c = chars[i];
     if (idx === GLITCH) obf(el, shown); else el.textContent = shown;
     if (i % 2 === 0 && c.trim()) Sound.sfx("type", pitch + (i % 3) * 2);
-    await sleep("。！？!?".indexOf(c) >= 0 ? 320 : "、…".indexOf(c) >= 0 ? 160 : c === " " ? 30 : 55);
+    await sleep("。！？!?".indexOf(c) >= 0 ? 200 : "、…".indexOf(c) >= 0 ? 100 : c === " " ? 20 : 36);
   }
   if (run !== resultRun) return false;
   putText(el, text, idx); el.classList.remove("typing");
@@ -2029,10 +2537,10 @@ function renderScore(d) {
 }
 
 // ∬…：ふつうのバズ神が、バグって宇宙人に変身する
-async function morphGod(g, pattern) {
-  await sleep(1000); if (!g.isConnected) return;
+async function morphGod(g, pattern, run) {
+  await sleep(1000); if (run !== resultRun) return;   // 結果を閉じたあとには動かさない
   g.classList.add("morph"); Sound.sfx("morph");
-  await sleep(750); if (!g.isConnected) return;
+  await sleep(750); if (run !== resultRun) return;
   // バズ神の真ん中から緑の輪が広がる（白い光で画面をちかちかさせない）
   var r = g.getBoundingClientRect(), ring = document.createElement("div"); ring.className = "morphring";
   ring.style.left = (r.left + r.width / 2) + "px"; ring.style.top = (r.top + r.height / 2) + "px";
@@ -2044,6 +2552,9 @@ async function morphGod(g, pattern) {
 async function showResult(d) {
   var res = $("result"), idx = d.levelIndex, pattern = d.pattern ? "　#" + d.pattern : "", run = ++resultRun;
   shownResult = d;
+  Sound.mood(Sound.forLevel(idx));   // シーンを早くスキップすると曲が始まっていないので、ここでも合わせる（同じ曲なら何も起きない）
+  $("srLive").textContent = lvLabel(d) + "。バズ力 " + scoreText(d.score, idx) + "。" + d.comment;   // 読み上げ用（打ち込みの1文字ずつは読ませない）
+  $("rhd").textContent = d === lastResult ? "@you ・ たった今" : "@you";
   res.classList.add("show"); res.scrollTop = 0;
   document.body.style.overflow = "hidden";
   var look = END_LOOK[idx];
@@ -2052,7 +2563,7 @@ async function showResult(d) {
   $("bigGod").innerHTML = ""; $("bigGod").append(g);
   $("speech").className = "speech " + (look ? look.cls : idx === KAMI ? "kami" : idx === GLITCH ? "glitch" : d.tone);
   obf($("who"), (look ? look.who : idx === KAMI ? WHO_KAMI : WHO[d.tone]) + (look ? "" : pattern));
-  if (idx === GLITCH) morphGod(g, pattern);
+  if (idx === GLITCH) morphGod(g, pattern, run);
   $("secretTag").innerHTML = look ? '<span class="secretTag end">🗺️ 地図にない場所</span>' : d.secret ? '<span class="secretTag">🔓 SECRET</span>' : "";
   obf($("lvname"), d.emoji + " " + lvLabel(d));
   $("rtext").textContent = d.text;
@@ -2060,14 +2571,14 @@ async function showResult(d) {
   var big = d.likes >= 1e16;
   $("rlike").textContent = likeNum(d.likes, big);
   $("rrt").textContent = likeNum(d.retweets, big);
-  $("rrep").textContent = likeNum(d.likes * 0.03, big);
+  var replies = idx === VOID ? [] : d.replies;   // 無には、だれからもリプライが来ない
+  $("rrep").textContent = likeNum(Math.max(d.likes * 0.03, replies.length), big);   // 下に並ぶリプライより少ない数を出さない
   renderScore(d);
 
   var box = $("replies"); box.innerHTML = "";
-  if (idx >= EARTH && idx !== VOID) confetti(100);   // 無は静かに
   if (!(await typeText($("comment"), d.comment, idx, run))) return;
-  for (var i = 0; i < d.replies.length && run === resultRun; i++) {
-    var r = d.replies[i];
+  for (var i = 0; i < replies.length && run === resultRun; i++) {
+    var r = replies[i];
     var row = document.createElement("div"); row.className = "reply";
     var av = putText(document.createElement("div"), Array.from(r.name)[0], idx); av.className = "avatar";
     var body = document.createElement("div"); var head = document.createElement("div");
@@ -2085,6 +2596,7 @@ function closeResult() {
   resultRun++;
   Sound.mood("idle");
   renderLast();
+  syncOverlay();   // すぐ後ろの画面を操作できるように（もう一回で入力欄に移るため）
 }
 $("closeRes").addEventListener("click", closeResult);
 $("resX").addEventListener("click", closeResult);
@@ -2098,7 +2610,8 @@ function renderLast() {
   var c = putText(document.createElement("div"), lastResult.comment, lastResult.levelIndex);
   c.style.cssText = "color:var(--sub);font-size:14px;margin:6px 0 10px";
   var b = document.createElement("button"); b.className = "btn sub"; b.textContent = "結果をもう一度見る";
-  b.addEventListener("click", function () { Sound.mood(Sound.forLevel(lastResult.levelIndex)); showResult(lastResult); });
+  var shown = lastResult;   // テストモードで別の結果を見たあとも、このカードの結果を開く
+  b.addEventListener("click", function () { showResult(shown); });
   el.append(t, c, b); el.classList.add("show");
 }
 
@@ -2106,6 +2619,7 @@ function renderLast() {
 postBtn.addEventListener("click", async function () {
   var text = textEl.value.trim(); if (!text) return;
   postBtn.disabled = true;
+  skipped = false;
   Sound.sfx("post"); Sound.mood("judge"); preloadGods();
 
   // 審査中の画面
@@ -2118,7 +2632,7 @@ postBtn.addEventListener("click", async function () {
   // 「バズの波」用に、見たことのある段階（上昇演出で通るふつうの段階＋届いたシークレット）と投稿回数も送る
   var seenAll = loadUnlocked().slice();
   for (var si = 0; si <= Math.min(loadBest(), EARTH); si++) seenAll.push(si);
-  var req = { text: text, seen: seenAll, posts: loadStats().posts };
+  var req = { text: text, seen: seenAll, posts: loadStats().posts, home: loadHome() };
   var data = await fetch("/api/buzz", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req) })
     .then(function (r) { return r.json(); }).catch(function () { return { error: "通信に失敗しました。もう一度試してください" }; });
   await sleep(Math.max(0, 1600 - (Date.now() - started)));
@@ -2127,27 +2641,34 @@ postBtn.addEventListener("click", async function () {
 
   // シークレット解放と自己ベストの記録
   var prevBest = loadBest(), seen = loadUnlocked();
+  if (data.levelIndex === 0 || prevBest === 0) saveHome();
   var st = loadStats(); st.posts += 1;
-  if (st.best == null || data.score > st.best) { st.best = data.score; saveBestPost(data); }
+  // エンドコンテンツは自己ベストに数えない（保存される点数は100だが、無は0点、創世は1点の場面なので）
+  if (!LV[data.levelIndex].e && (st.best == null || data.score > st.best)) { st.best = data.score; saveBestPost(data); }
   saveStats(st);
-  var endMsg = null;   // エンドコンテンツは行き先を明かさないよう、演出が終わってから知らせる
+  // 解放の通知は、演出が終わってから出す（先に出すと行き先が分かってしまう）
+  var endMsg = null, afterMsgs = [];
   if (data.secret) {
     var u = loadUnlocked();
     if (u.indexOf(data.levelIndex) < 0) {
       u.push(data.levelIndex); saveUnlocked(u);
       var unlockMsg = "🔓 シークレット「" + data.level + "」を解放！";
       if (LV[data.levelIndex].e) endMsg = LV[data.levelIndex].t;
-      else setTimeout(function () { toast(unlockMsg); }, 400);
+      else afterMsgs.push(unlockMsg);
     }
     // 見えている最後のシークレット（銀河団）に初めて届いたら、霧の向こうをほのめかす
-    if (data.levelIndex === 9 && seen.indexOf(9) < 0 && !seen.some(function (i) { return LV[i] && LV[i].h; })) setTimeout(function () { toast("🌫️ 霧の向こうに、まだ何かある気配がする……"); }, 2600);
+    if (data.levelIndex === 9 && seen.indexOf(9) < 0 && !seen.some(function (i) { return LV[i] && LV[i].h; })) afterMsgs.push("🌫️ 霧の向こうに、まだ何かある気配がする……");
   }
-  if (data.levelIndex > prevBest) saveBest(data.levelIndex);
+  if (data.levelIndex > prevBest && !LV[data.levelIndex].e) saveBest(data.levelIndex);
 
   if (data.wave) setTimeout(function () { toast("🌊 バズの波に乗った！ いつもより遠くまで届きそうじゃ……"); }, 300);
   await playCinema(data, seen);
+  afterMsgs.forEach(function (m, k) { setTimeout(function () { toast(m); }, 300 + k * 700); });
   if (endMsg) setTimeout(function () { toast(endMsg); }, 300);
   if (data.likes >= 1e16) setTimeout(function () { toast("🤯 いいねが" + bigUnit(data.likes) + "を突破！"); }, 600);   // 超バズ
+  // 創世まで見たのに家庭内に着いたことがない人へのヒント（真・家庭内の条件。行き先は明かさない）
+  var opened = loadUnlocked();
+  if (opened.indexOf(GENESIS) >= 0 && opened.indexOf(TRUEHOME) < 0 && !loadHome()) setTimeout(function () { toast("🏠 最近うちに帰っておらんのう……（中身のない投稿で帰れるのじゃ）"); }, 900);
   renderMap(data.levelIndex);
   renderMyStats(); loadTop3();
   if (data.levelIndex === GLITCH || data.levelIndex === TRUEHOME) renderMiniGod();   // ∬… で宇宙人に、真・家庭内で元のすがたに
@@ -2158,13 +2679,15 @@ postBtn.addEventListener("click", async function () {
 $("share").addEventListener("click", function () {
   var d = shownResult || lastResult;
   if (!d) return;
-  var shareText = "「" + d.text + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + lvLabel(d) + "のバズ！ ❤️ " + likeNum(d.likes) + " #ツイートバズシミュレーター";
+  // 140字をそのまま引くと X の上限を超えて投稿ボタンが押せなくなるので、長い文は短くして引く
+  var ch = Array.from(d.text), quoted = ch.length > 60 ? ch.slice(0, 60).join("") + "…" : d.text;
+  var shareText = "「" + quoted + "」はバズ力" + scoreText(d.score, d.levelIndex) + "点で" + d.emoji + lvLabel(d) + "のバズ！ ❤️ " + likeNum(d.likes) + " #ツイートバズシミュレーター";
   window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(location.origin + "/"), "_blank", "noopener");
 });
 $("again").addEventListener("click", function () {
   closeResult();
   textEl.value = ""; textEl.dispatchEvent(new Event("input"));
-  window.scrollTo({ top: 0, behavior: "smooth" }); textEl.focus();
+  window.scrollTo({ top: 0, behavior: REDUCE.matches ? "auto" : "smooth" }); textEl.focus();
 });
 
 // ── ランキング（ボタンを押したときだけ表示）──
@@ -2179,33 +2702,46 @@ $("closeBoard").addEventListener("click", closeBoard);
 $("boardModal").addEventListener("click", function (e) { if (e.target.id === "boardModal") closeBoard(); });
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Escape") return;
-  closeBoard(); if ($("result").classList.contains("show")) closeResult();
+  closeBoard(); $("mapModal").classList.remove("show");
+  if ($("cinema").classList.contains("show")) skipNow();
+  else if ($("result").classList.contains("show")) closeResult();
 });
 document.querySelectorAll(".tab").forEach(function (t) {
   t.addEventListener("click", function () {
-    document.querySelectorAll(".tab").forEach(function (x) { x.classList.toggle("on", x === t); });
+    document.querySelectorAll(".tab").forEach(function (x) { x.classList.toggle("on", x === t); x.setAttribute("aria-pressed", String(x === t)); });
     currentTab = t.dataset.tab; loadBoard();
   });
 });
+// まだ届いていない隠し段階は、ランキングでも絵文字と点数を見せない（文章だけ読める）
+function rankHidden(item) { var i = levelOf(item); return !!LV[i].h && loadUnlocked().indexOf(i) < 0; }
+function rankEmoji(item) { return rankHidden(item) ? "☁️" : item.emoji; }
+function rankScore(item, suffix) {
+  if (!rankHidden(item)) return scoreSpan(item, suffix);
+  var m = document.createElement("span"); m.append("？？？", suffix || ""); return m;
+}
+// エンドコンテンツのいいね数（1無量大数など）も、届くまで見せない
+function rankLikes(item, text) { return LV[levelOf(item)].e && rankHidden(item) ? "？？？" : text; }
+var boardRun = 0;
 async function loadBoard() {
   var board = $("board"); board.innerHTML = "";
-  var tab = currentTab;
+  var tab = currentTab, run = ++boardRun;
   // テストモードでは、隠した投稿がすぐ消えたと分かるように、ブラウザにためた分を使わない
-  var items = await fetch(BOARD_URL[tab], adminKey ? { cache: "no-cache" } : {}).then(function (r) { return r.json(); }).catch(function () { return []; });
-  if (tab !== currentTab) return;   // 読み込み中に別のタブを押されたら、古い結果は捨てる
+  var items = await fetch(BOARD_URL[tab], adminKey ? { cache: "no-cache" } : {}).then(function (r) { return r.json(); }).catch(function () { return null; });
+  if (run !== boardRun) return;   // 読み込み中に押し直されたら、古い結果は捨てる
+  if (!Array.isArray(items)) { var ng = document.createElement("li"); ng.className = "empty"; ng.textContent = "いまは読み込めなかったのじゃ。少しあとでもう一度試してほしいのじゃ"; board.append(ng); return; }
   if (!items.length) { var e = document.createElement("li"); e.className = "empty"; e.textContent = "まだ投稿がありません。一番乗りしよう！"; board.append(e); return; }
   var medals = ["🥇", "🥈", "🥉"];
   items.forEach(function (item, i) {
     var li = document.createElement("li"); li.style.animationDelay = i * 0.03 + "s";
     var rank = document.createElement("span"); rank.className = "rank";
-    rank.textContent = tab === "history" ? item.emoji : medals[i] || String(i + 1);
+    rank.textContent = tab === "history" ? rankEmoji(item) : medals[i] || String(i + 1);
     var txt = document.createElement("span"); txt.className = "txt"; txt.textContent = item.text;
     var meta = document.createElement("span"); meta.className = "meta";
-    var likes = "❤️ " + likeNum(item.likes);
-    if (tab !== "history") meta.append(item.emoji + " ");
+    var likes = "❤️ " + rankLikes(item, likeNum(item.likes));
+    if (tab !== "history") meta.append(rankEmoji(item) + " ");
     // 並べている数字を先に出す
-    if (tab === "likes") meta.append(likes, " ・ ", scoreSpan(item, "点"));
-    else meta.append(scoreSpan(item, "点 ・ "), likes);
+    if (tab === "likes") meta.append(likes, " ・ ", rankScore(item, "点"));
+    else meta.append(rankScore(item, "点 ・ "), likes);
     li.append(rank, txt, meta);
     if (adminKey && item.id) li.append(modTools(item, li));
     board.append(li);
@@ -2223,6 +2759,7 @@ function modTools(item, li) {
       var data = r ? await r.json().catch(function () { return {}; }) : {};
       if (!r || !r.ok) { toast("⚠️ " + (data.error || "隠せませんでした")); return; }
       li.remove(); toast("🙈 " + data.hidden + "件を隠しました");
+      loadTop3();   // TOP3 と「これまで ○ 件」もすぐ直す
     });
     box.append(b);
   });
@@ -2234,27 +2771,29 @@ var top3By = "score";
 document.querySelectorAll("#top3Tabs button").forEach(function (b) {
   b.addEventListener("click", function () {
     top3By = b.dataset.by;
-    document.querySelectorAll("#top3Tabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
+    document.querySelectorAll("#top3Tabs button").forEach(function (x) { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", String(x === b)); });
     loadTop3();
   });
 });
 async function loadTop3() {
-  var by = top3By;
-  var items = await fetch(by === "score" ? "/api/ranking?by=score" : "/api/ranking").then(function (r) { return r.json(); }).catch(function () { return []; });
+  var by = top3By, fresh = adminKey ? { cache: "no-cache" } : {};   // テストモードでは、隠した結果がすぐ分かるように、ブラウザにためた分を使わない
+  var items = await fetch(by === "score" ? "/api/ranking?by=score" : "/api/ranking", fresh).then(function (r) { return r.json(); }).catch(function () { return null; });
   if (by !== top3By) return;
   var ol = $("top3"); ol.innerHTML = "";
-  if (!items.length) { var e = document.createElement("li"); e.className = "empty"; e.textContent = "まだ投稿がありません"; ol.append(e); }
+  var ok = Array.isArray(items);
+  if (!ok) items = [];
+  if (!items.length) { var e = document.createElement("li"); e.className = "empty"; e.textContent = ok ? "まだ投稿がありません" : "いまは読み込めなかったのじゃ"; ol.append(e); }
   var medals = ["🥇", "🥈", "🥉"];
   items.slice(0, 3).forEach(function (item, i) {
     var li = document.createElement("li");
     var m = document.createElement("span"); m.textContent = medals[i];
     var t = document.createElement("span"); t.className = "t"; t.textContent = item.text;
-    var s = document.createElement("span"); s.className = "s"; s.append(item.emoji + " ");
-    if (by === "score") s.append(scoreSpan(item, "点")); else s.append("❤️ " + compactNum(item.likes));
+    var s = document.createElement("span"); s.className = "s"; s.append(rankEmoji(item) + " ");
+    if (by === "score") s.append(rankScore(item, "点")); else s.append("❤️ " + rankLikes(item, compactNum(item.likes)));
     li.append(m, t, s); ol.append(li);
   });
-  var stats = await fetch("/api/stats").then(function (r) { return r.json(); }).catch(function () { return null; });
-  if (stats && stats.posts) $("postsCount").textContent = "（これまで " + Number(stats.posts).toLocaleString() + " 件）";
+  var stats = await fetch("/api/stats", fresh).then(function (r) { return r.json(); }).catch(function () { return null; });
+  if (stats && stats.posts != null) $("postsCount").textContent = stats.posts ? "（これまで " + Number(stats.posts).toLocaleString() + " 件）" : "";
 }
 
 // ── テストモード ──
@@ -2276,14 +2815,25 @@ async function adminCheck(key) {
   if (!r.ok) adminError = (await r.json().catch(function () { return {}; })).error || adminError;
   return r.ok;
 }
+// 動いているコードの版（テストモードに出す）。タブを開いたままだと、直したあとも古いコードのままなので、見分けられるように
+var BUILD = (function (t) { var h = 5381; for (var i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) >>> 0; return h.toString(36).slice(-5).toUpperCase(); })(document.currentScript ? document.currentScript.textContent : "");
+$("testBadge").append(" 版 " + BUILD);
+$("adminHead").insertBefore(document.createTextNode("版 " + BUILD + " "), $("adminOut"));
 async function runTest(level) {
-  var r = await fetch("/api/admin/test", { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ key: adminKey, level: level, text: textEl.value }) });
-  var data = await r.json();
-  if (!r.ok) { toast("⚠️ " + data.error); return; }
+  if (replaying) return; replaying = true;   // ボタンの押し直しで二重に始めない
+  var data = null;
+  try {
+    var r = await fetch("/api/admin/test", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: adminKey, level: level, text: textEl.value }) });
+    data = await r.json();
+    if (!r.ok) { toast("⚠️ " + data.error); data = null; }
+  } catch (e) { toast("⚠️ 通信に失敗しました"); }
+  if (!data) { replaying = false; return; }
   lastResult = data; preloadGods();
   $("admin").style.display = "none"; $("testBadge").classList.add("show");
+  skipped = false;
   await playCinema(data, loadUnlocked());
+  replaying = false;
   await showResult(data);
 }
 if (new URLSearchParams(location.search).has("admin") || adminKey) {
@@ -2324,7 +2874,11 @@ function renderMiniGod() {
   $("tip").classList.toggle("alien", alien);
   nextTip();
 }
-function nextTip() { if (isAlienGod()) obf($("tip"), pickOne(ALIEN_TIPS)); else $("tip").textContent = pickOne(TIPS); }
+function nextTip() {
+  if (isAlienGod()) { obf($("tip"), pickOne(ALIEN_TIPS)); return; }
+  // ぜんぶ見終わった人には「まだ世界がある」「霧の向こう」のヒントを出さない
+  $("tip").textContent = pickOne(reachedCount() === MAIN ? TIPS.filter(function (t) { return t.indexOf("霧") < 0 && t.indexOf("地球の先") < 0; }) : TIPS);
+}
 renderMiniGod(); setInterval(nextTip, 7000);
 
 renderMap(-1);
